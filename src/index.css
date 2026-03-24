@@ -2,188 +2,534 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/*
+  Design system — all Tailwind tokens use HSL.
+  Orion-specific dynamic colors live in --orion-* CSS vars
+  (set by ThemeContext via JS) and use plain hex / rgba values.
 */
 
 @layer base {
   :root {
-    --background: 215 25% 8%;
-    --foreground: 220 15% 92%;
+    /* ── Base tokens (dark default) ── */
+    --background: 222 40% 8%;
+    --foreground: 220 20% 92%;
 
-    --card: 215 25% 10%;
-    --card-foreground: 220 15% 92%;
+    --card: 222 40% 10%;
+    --card-foreground: 220 20% 92%;
 
-    --popover: 215 25% 10%;
-    --popover-foreground: 220 15% 92%;
+    --popover: 222 40% 10%;
+    --popover-foreground: 220 20% 92%;
 
-    --primary: 195 100% 55%;
+    --primary: 220 80% 62%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 280 90% 65%;
+    --secondary: 255 65% 68%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 215 25% 13%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 222 30% 13%;
+    --muted-foreground: 220 12% 48%;
 
-    --accent: 340 95% 60%;
+    --accent: 220 80% 62%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 85% 60%;
+    --destructive: 0 80% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 25% 18%;
-    --input: 215 25% 15%;
-    --ring: 195 100% 55%;
+    --border: 222 30% 16%;
+    --input: 222 30% 13%;
+    --ring: 220 80% 62%;
 
-    --radius: 1rem;
-    
-    /* Custom Orion variables */
-    --browser-chrome: 215 25% 9%;
-    --tab-active: 215 25% 13%;
-    --tab-inactive: 215 25% 10%;
-    --toolbar: 215 25% 11%;
-    --orion-glow: 195 100% 55%;
-    
-    --gradient-primary: linear-gradient(135deg, hsl(195 100% 55%), hsl(280 90% 65%));
-    --gradient-secondary: linear-gradient(135deg, hsl(280 90% 65%), hsl(340 95% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(25 95% 60%), hsl(340 95% 60%));
-    --gradient-mesh: radial-gradient(at 40% 20%, hsl(195 100% 55% / 0.12) 0px, transparent 50%),
-                     radial-gradient(at 80% 0%, hsl(280 90% 65% / 0.12) 0px, transparent 50%),
-                     radial-gradient(at 0% 50%, hsl(340 95% 60% / 0.08) 0px, transparent 50%);
-    
-    --shadow-soft: 0 2px 12px -2px hsl(0 0% 0% / 0.3);
-    --shadow-medium: 0 4px 20px -4px hsl(0 0% 0% / 0.4);
-    --shadow-strong: 0 8px 40px -8px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 40px hsl(195 100% 55% / 0.5);
-    
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --radius: 0.875rem;
+
+    /* ── Browser chrome tokens ── */
+    --browser-chrome: 222 40% 9%;
+    --tab-active:     222 40% 12%;
+    --tab-inactive:   222 40% 9%;
+    --toolbar:        222 40% 10%;
+    --orion-glow:     220 80% 62%;
+
+    /* ── Gradients ── */
+    --gradient-primary:   linear-gradient(135deg, hsl(220 80% 62%), hsl(255 65% 68%));
+    --gradient-secondary: linear-gradient(135deg, hsl(255 65% 68%), hsl(280 60% 65%));
+    --gradient-accent:    linear-gradient(135deg, hsl(200 80% 58%), hsl(220 80% 62%));
+
+    /* Mesh gradient for new tab page background */
+    --gradient-mesh:
+      radial-gradient(ellipse at 20% 20%, hsl(220 80% 62% / 0.08) 0px, transparent 55%),
+      radial-gradient(ellipse at 80% 10%, hsl(255 65% 68% / 0.07) 0px, transparent 55%),
+      radial-gradient(ellipse at 10% 80%, hsl(200 70% 55% / 0.05) 0px, transparent 50%),
+      radial-gradient(ellipse at 85% 85%, hsl(280 60% 65% / 0.06) 0px, transparent 50%);
+
+    /* ── Elevation shadows ── */
+    --shadow-xs:     0 1px 3px hsl(0 0% 0% / 0.18), 0 1px 2px hsl(0 0% 0% / 0.12);
+    --shadow-sm:     0 2px 8px  hsl(0 0% 0% / 0.22), 0 1px 3px hsl(0 0% 0% / 0.16);
+    --shadow-md:     0 4px 16px hsl(0 0% 0% / 0.28), 0 2px 6px  hsl(0 0% 0% / 0.18);
+    --shadow-lg:     0 8px 32px hsl(0 0% 0% / 0.32), 0 4px 12px hsl(0 0% 0% / 0.20);
+    --shadow-xl:     0 16px 48px hsl(0 0% 0% / 0.38);
+    --shadow-glow:   0 0 32px hsl(var(--orion-glow) / 0.25);
+
+    /* ── Transitions ── */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring:   cubic-bezier(0.68, -0.4, 0.265, 1.4);
+    --ease-smooth:   cubic-bezier(0.4, 0, 0.2, 1);
+    --t-fast:   all 0.15s var(--ease-smooth);
+    --t-normal: all 0.25s var(--ease-smooth);
+    --t-slow:   all 0.4s  var(--ease-out-expo);
+
+    /* ── Glass surface values (dark) ── */
+    --glass-bg:     rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-blur:   16px;
   }
-  
-  /* Alternative Themes */
+
+  /* ── Per-theme overrides (dark) ── */
+  [data-theme="midnight"] {
+    --background:     226 48% 8%;
+    --browser-chrome: 226 48% 10%;
+    --tab-active:     226 38% 14%;
+    --toolbar:        226 44% 11%;
+    --primary:        220 80% 68%;
+    --secondary:      258 72% 72%;
+    --orion-glow:     220 80% 68%;
+    --gradient-primary:   linear-gradient(135deg, hsl(220 80% 68%), hsl(258 72% 72%));
+    --gradient-secondary: linear-gradient(135deg, hsl(258 72% 72%), hsl(278 60% 68%));
+  }
+  [data-theme="aurora"] {
+    --background:     260 52% 7%;
+    --browser-chrome: 260 52% 9%;
+    --tab-active:     260 40% 14%;
+    --toolbar:        260 48% 10%;
+    --primary:        258 72% 68%;
+    --secondary:      162 58% 50%;
+    --orion-glow:     258 72% 68%;
+    --gradient-primary:   linear-gradient(135deg, hsl(258 72% 68%), hsl(162 58% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(162 58% 50%), hsl(295 60% 65%));
+  }
   [data-theme="ocean"] {
-    --primary: 195 100% 55%;
-    --secondary: 200 90% 60%;
-    --accent: 210 95% 65%;
-    --orion-glow: 195 100% 55%;
-    --gradient-primary: linear-gradient(135deg, hsl(195 100% 55%), hsl(200 90% 60%));
-    --gradient-secondary: linear-gradient(135deg, hsl(200 90% 60%), hsl(210 95% 65%));
+    --background:     218 60% 8%;
+    --browser-chrome: 218 60% 10%;
+    --tab-active:     218 45% 14%;
+    --toolbar:        218 55% 11%;
+    --primary:        212 80% 60%;
+    --secondary:      165 68% 42%;
+    --orion-glow:     212 80% 60%;
+    --gradient-primary:   linear-gradient(135deg, hsl(212 80% 60%), hsl(165 68% 42%));
+    --gradient-secondary: linear-gradient(135deg, hsl(165 68% 42%), hsl(195 72% 52%));
   }
-  
   [data-theme="sunset"] {
-    --primary: 25 95% 55%;
-    --secondary: 340 95% 60%;
-    --accent: 280 90% 65%;
-    --orion-glow: 25 95% 55%;
-    --gradient-primary: linear-gradient(135deg, hsl(25 95% 55%), hsl(340 95% 60%));
-    --gradient-secondary: linear-gradient(135deg, hsl(340 95% 60%), hsl(280 90% 65%));
+    --background:     10 55% 7%;
+    --browser-chrome: 10 50% 9%;
+    --tab-active:     10 40% 14%;
+    --toolbar:        10 48% 10%;
+    --primary:        22 78% 58%;
+    --secondary:      345 62% 56%;
+    --orion-glow:     22 78% 58%;
+    --gradient-primary:   linear-gradient(135deg, hsl(22 78% 58%), hsl(345 62% 56%));
+    --gradient-secondary: linear-gradient(135deg, hsl(345 62% 56%), hsl(300 55% 58%));
   }
-  
   [data-theme="forest"] {
-    --primary: 140 70% 45%;
-    --secondary: 160 65% 50%;
-    --accent: 180 60% 55%;
-    --orion-glow: 140 70% 45%;
-    --gradient-primary: linear-gradient(135deg, hsl(140 70% 45%), hsl(160 65% 50%));
-    --gradient-secondary: linear-gradient(135deg, hsl(160 65% 50%), hsl(180 60% 55%));
+    --background:     150 58% 6%;
+    --browser-chrome: 150 58% 8%;
+    --tab-active:     150 42% 13%;
+    --toolbar:        150 52% 9%;
+    --primary:        160 68% 42%;
+    --secondary:      90 60% 50%;
+    --orion-glow:     160 68% 42%;
+    --gradient-primary:   linear-gradient(135deg, hsl(160 68% 42%), hsl(90 60% 50%));
+    --gradient-secondary: linear-gradient(135deg, hsl(90 60% 50%), hsl(128 58% 44%));
   }
-  
-  [data-theme="purple"] {
-    --primary: 280 90% 65%;
-    --secondary: 260 85% 60%;
-    --accent: 300 80% 55%;
-    --orion-glow: 280 90% 65%;
-    --gradient-primary: linear-gradient(135deg, hsl(280 90% 65%), hsl(260 85% 60%));
-    --gradient-secondary: linear-gradient(135deg, hsl(260 85% 60%), hsl(300 80% 55%));
+  [data-theme="lavender"] {
+    --background:     272 58% 7%;
+    --browser-chrome: 272 58% 9%;
+    --tab-active:     272 44% 14%;
+    --toolbar:        272 52% 10%;
+    --primary:        270 72% 64%;
+    --secondary:      320 65% 62%;
+    --orion-glow:     270 72% 64%;
+    --gradient-primary:   linear-gradient(135deg, hsl(270 72% 64%), hsl(320 65% 62%));
+    --gradient-secondary: linear-gradient(135deg, hsl(320 65% 62%), hsl(292 60% 60%));
+  }
+  [data-theme="amoled"] {
+    --background:     0 0% 0%;
+    --browser-chrome: 0 0% 3%;
+    --tab-active:     0 0% 8%;
+    --toolbar:        0 0% 4%;
+    --primary:        210 80% 62%;
+    --secondary:      260 72% 68%;
+    --orion-glow:     210 80% 62%;
+    --gradient-primary:   linear-gradient(135deg, hsl(210 80% 62%), hsl(260 72% 68%));
+    --gradient-secondary: linear-gradient(135deg, hsl(260 72% 68%), hsl(285 68% 64%));
+  }
+  [data-theme="arctic"] {
+    --background:     218 60% 8%;
+    --browser-chrome: 218 60% 10%;
+    --tab-active:     218 44% 14%;
+    --toolbar:        218 54% 11%;
+    --primary:        200 78% 58%;
+    --secondary:      238 65% 68%;
+    --orion-glow:     200 78% 58%;
+    --gradient-primary:   linear-gradient(135deg, hsl(200 78% 58%), hsl(238 65% 68%));
+    --gradient-secondary: linear-gradient(135deg, hsl(238 65% 68%), hsl(215 70% 62%));
   }
 
+  /* ══════════════════════════════════════════
+     LIGHT MODE BASE
+     ══════════════════════════════════════════ */
   .light {
-    --background: 225 25% 98%;
-    --foreground: 225 15% 12%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 225 15% 12%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 225 15% 12%;
-
-    --primary: 195 100% 45%;
+    --background:     210 18% 96%;
+    --foreground:     220 30% 10%;
+    --card:           0 0% 100%;
+    --card-foreground: 220 30% 10%;
+    --popover:        0 0% 100%;
+    --popover-foreground: 220 30% 10%;
+    --primary:        220 70% 46%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 280 90% 65%;
+    --secondary:      258 62% 52%;
     --secondary-foreground: 0 0% 100%;
-
-    --muted: 225 20% 94%;
-    --muted-foreground: 225 10% 40%;
-
-    --accent: 340 95% 60%;
+    --muted:          210 16% 94%;
+    --muted-foreground: 215 18% 42%;
+    --accent:         220 70% 46%;
     --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 85% 60%;
+    --destructive:    0 78% 52%;
     --destructive-foreground: 0 0% 100%;
+    --border:         215 18% 86%;
+    --input:          0 0% 100%;
+    --ring:           220 70% 46%;
+    --browser-chrome: 210 18% 94%;
+    --tab-active:     0 0% 100%;
+    --tab-inactive:   210 18% 92%;
+    --toolbar:        210 18% 95%;
+    --orion-glow:     220 70% 46%;
+    --gradient-primary:   linear-gradient(135deg, hsl(220 70% 46%), hsl(258 62% 52%));
+    --gradient-secondary: linear-gradient(135deg, hsl(258 62% 52%), hsl(340 72% 50%));
 
-    --border: 225 15% 88%;
-    --input: 225 15% 92%;
-    --ring: 195 100% 45%;
-    
-    /* Custom Orion light variables */
-    --browser-chrome: 225 25% 96%;
-    --tab-active: 0 0% 100%;
-    --tab-inactive: 225 20% 92%;
-    --toolbar: 0 0% 100%;
-    --orion-glow: 195 100% 45%;
-    
-    --gradient-mesh: radial-gradient(at 40% 20%, hsl(195 100% 45% / 0.15) 0px, transparent 50%),
-                     radial-gradient(at 80% 0%, hsl(280 90% 65% / 0.15) 0px, transparent 50%),
-                     radial-gradient(at 0% 50%, hsl(340 95% 60% / 0.1) 0px, transparent 50%);
+    /* Glass values for light mode */
+    --glass-bg:     rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.9);
+    --glass-blur:   20px;
+
+    /* Lighter shadows for light mode */
+    --shadow-xs:  0 1px 3px hsl(0 0% 0% / 0.06), 0 1px 2px hsl(0 0% 0% / 0.04);
+    --shadow-sm:  0 2px 8px  hsl(0 0% 0% / 0.08), 0 1px 3px hsl(0 0% 0% / 0.05);
+    --shadow-md:  0 4px 16px hsl(0 0% 0% / 0.1),  0 2px 6px  hsl(0 0% 0% / 0.06);
+    --shadow-lg:  0 8px 32px hsl(0 0% 0% / 0.12), 0 4px 12px hsl(0 0% 0% / 0.07);
+    --shadow-xl:  0 16px 48px hsl(0 0% 0% / 0.14);
+  }
+
+  /* ── Light mode per-theme overrides ── */
+  .light[data-theme="midnight"], .light [data-theme="midnight"] {
+    --background:     214 22% 95%;
+    --browser-chrome: 214 20% 92%;
+    --primary:        220 70% 44%;
+    --orion-glow:     220 70% 44%;
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 44%), hsl(258 60% 50%));
+  }
+  .light[data-theme="aurora"], .light [data-theme="aurora"] {
+    --background:     268 28% 96%;
+    --browser-chrome: 268 24% 92%;
+    --primary:        260 65% 50%;
+    --orion-glow:     260 65% 50%;
+    --gradient-primary: linear-gradient(135deg, hsl(260 65% 50%), hsl(162 55% 40%));
+  }
+  .light[data-theme="ocean"], .light [data-theme="ocean"] {
+    --background:     205 36% 96%;
+    --browser-chrome: 205 32% 92%;
+    --primary:        210 75% 42%;
+    --orion-glow:     210 75% 42%;
+    --gradient-primary: linear-gradient(135deg, hsl(210 75% 42%), hsl(170 68% 38%));
+  }
+  .light[data-theme="sunset"], .light [data-theme="sunset"] {
+    --background:     28 44% 96%;
+    --browser-chrome: 28 38% 92%;
+    --primary:        22 72% 46%;
+    --orion-glow:     22 72% 46%;
+    --gradient-primary: linear-gradient(135deg, hsl(22 72% 46%), hsl(345 65% 50%));
+  }
+  .light[data-theme="forest"], .light [data-theme="forest"] {
+    --background:     140 28% 96%;
+    --browser-chrome: 140 24% 92%;
+    --primary:        155 58% 34%;
+    --orion-glow:     155 58% 34%;
+    --gradient-primary: linear-gradient(135deg, hsl(155 58% 34%), hsl(92 52% 38%));
+  }
+  .light[data-theme="lavender"], .light [data-theme="lavender"] {
+    --background:     274 30% 96%;
+    --browser-chrome: 274 25% 92%;
+    --primary:        270 68% 50%;
+    --orion-glow:     270 68% 50%;
+    --gradient-primary: linear-gradient(135deg, hsl(270 68% 50%), hsl(318 58% 48%));
+  }
+  .light[data-theme="amoled"], .light [data-theme="amoled"] {
+    --background:     0 0% 97%;
+    --browser-chrome: 0 0% 94%;
+    --primary:        0 0% 11%;
+    --orion-glow:     0 0% 18%;
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 11%), hsl(0 0% 28%));
+  }
+  .light[data-theme="arctic"], .light [data-theme="arctic"] {
+    --background:     196 36% 96%;
+    --browser-chrome: 196 32% 92%;
+    --primary:        200 72% 38%;
+    --orion-glow:     200 72% 38%;
+    --gradient-primary: linear-gradient(135deg, hsl(200 72% 38%), hsl(238 60% 48%));
   }
 }
 
+/* ══════════════════════════════════════════
+   BASE STYLES
+   ══════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  
+}
+
+/* ══════════════════════════════════════════
+   GLASSMORPHISM UTILITIES
+   ══════════════════════════════════════════ */
+@layer components {
+  /* Dark glass surface */
+  .glass {
+    backdrop-filter: blur(var(--glass-blur, 16px)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 16px)) saturate(180%);
+    background: var(--glass-bg, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.09));
+  }
+
+  /* Search bar glass — adapts to mode */
+  .search-glass {
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+  }
+  .dark .search-glass,
+  :not(.light) .search-glass {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.07);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  .light .search-glass {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(0, 0, 0, 0.07);
+    box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  /* Card elevation */
+  .card-elevated {
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.25s var(--ease-smooth), transform 0.25s var(--ease-smooth);
+  }
+  .card-elevated:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  /* Focus ring */
+  .focus-ring {
+    outline: none;
+    transition: box-shadow 0.2s var(--ease-smooth);
+  }
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 2px var(--orion-accent, #5b8def), 0 0 0 4px rgba(91, 141, 239, 0.2);
+  }
+}
+
+/* ══════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+   ══════════════════════════════════════════ */
+@layer base {
   @keyframes float {
     0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
+    50%       { transform: translateY(-16px); }
   }
-  
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33%       { transform: translateY(-10px) rotate(1deg); }
+    66%       { transform: translateY(-6px) rotate(-1deg); }
+  }
   @keyframes glow-pulse {
-    0%, 100% { box-shadow: 0 0 20px hsl(var(--orion-glow) / 0.3); }
-    50% { box-shadow: 0 0 40px hsl(var(--orion-glow) / 0.6); }
+    0%, 100% { box-shadow: 0 0 16px hsl(var(--orion-glow) / 0.2); }
+    50%       { box-shadow: 0 0 32px hsl(var(--orion-glow) / 0.45); }
   }
-  
   @keyframes gradient-shift {
     0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    50%       { background-position: 100% 50%; }
   }
-  
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  
-  .animate-glow-pulse {
-    animation: glow-pulse 2s ease-in-out infinite;
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
   }
-  
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-shift 3s ease infinite;
+  /* Subtle shimmer for loading states */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  /* Blob drift animations */
+  @keyframes blob-drift-1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25%       { transform: translate(8vw, 6vh) scale(1.06); }
+    50%       { transform: translate(4vw, 14vh) scale(0.97); }
+    75%       { transform: translate(-3vw, 8vh) scale(1.04); }
+  }
+  @keyframes blob-drift-2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    30%       { transform: translate(-8vw, -7vh) scale(1.08); }
+    60%       { transform: translate(-4vw, -12vh) scale(0.94); }
+    80%       { transform: translate(6vw, -5vh) scale(1.05); }
+  }
+  @keyframes blob-drift-3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(7vw, -9vh) scale(0.88); }
+    66%       { transform: translate(-6vw, -6vh) scale(1.12); }
+  }
+  /* Micro-interaction: button press */
+  @keyframes btn-press {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(0.95); }
+  }
+  /* Bubble split burst */
+  @keyframes bubble-burst {
+    0%   { transform: scale(1); opacity: 0.6; }
+    50%  { transform: scale(1.3); opacity: 0.3; }
+    100% { transform: scale(0); opacity: 0; }
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+/* ══════════════════════════════════════════
+   ANIMATION UTILITY CLASSES
+   ══════════════════════════════════════════ */
+.animate-float      { animation: float 4s ease-in-out infinite; }
+.animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+.animate-glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+.animate-gradient   { background-size: 200% 200%; animation: gradient-shift 4s ease infinite; }
+.animate-fade-up    { animation: fade-up 0.4s var(--ease-out-expo) both; }
+.animate-scale-in   { animation: scale-in 0.3s var(--ease-out-expo) both; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+/* ══════════════════════════════════════════
+   AMBIENT BLOB BACKGROUND
+   ══════════════════════════════════════════ */
+.orion-bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  transition: opacity 1s ease, filter 1s ease;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.orion-bg-blob-1 {
+  width: 68vw;
+  height: 68vw;
+  background: radial-gradient(circle at center,
+    var(--orion-accentGradient-from, #5b8def) 0%,
+    transparent 65%);
+  top: -22vw;
+  left: -16vw;
+  opacity: calc(var(--orion-bg-opacity, 0.8) * 0.38);
+  filter: blur(var(--orion-bg-blur, 60px));
+  animation: blob-drift-1 32s ease-in-out infinite;
+}
+
+.orion-bg-blob-2 {
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle at center,
+    var(--orion-accentGradient-to, #9580f0) 0%,
+    transparent 65%);
+  bottom: -16vw;
+  right: -16vw;
+  opacity: calc(var(--orion-bg-opacity, 0.8) * 0.30);
+  filter: blur(var(--orion-bg-blur, 60px));
+  animation: blob-drift-2 26s ease-in-out infinite;
+}
+
+.orion-bg-blob-3 {
+  width: 42vw;
+  height: 42vw;
+  background: radial-gradient(circle at center,
+    var(--orion-accentGradient-to, #9580f0) 0%,
+    transparent 65%);
+  top: 28%;
+  left: 28%;
+  opacity: calc(var(--orion-bg-opacity, 0.8) * 0.18);
+  filter: blur(var(--orion-bg-blur, 60px));
+  animation: blob-drift-3 40s ease-in-out infinite;
+}
+
+/* ══════════════════════════════════════════
+   SEARCH BAR FOCUS ANIMATION
+   ══════════════════════════════════════════ */
+.search-focus-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  background: transparent;
+  box-shadow: 0 0 0 2px var(--orion-accent, #5b8def),
+              0 0 20px rgba(91, 141, 239, 0.2);
+}
+.search-container:focus-within .search-focus-ring {
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════
+   MICRO-INTERACTION UTILITIES
+   ══════════════════════════════════════════ */
+
+/* Interactive scale on click */
+.press-scale {
+  transition: transform 0.12s var(--ease-smooth);
+}
+.press-scale:active {
+  transform: scale(0.95);
+}
+
+/* Hover lift */
+.hover-lift {
+  transition: transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Icon scale on parent hover */
+.group:hover .icon-scale {
+  transform: scale(1.12);
+  transition: transform 0.25s var(--ease-spring);
+}
+.icon-scale {
+  transition: transform 0.25s var(--ease-smooth);
+}
+
+/* ══════════════════════════════════════════
+   SCROLLBAR HIDE
+   ══════════════════════════════════════════ */
+::-webkit-scrollbar { display: none; width: 0; height: 0; }
+* { scrollbar-width: none; }
+
+/* ══════════════════════════════════════════
+   PERFORMANCE — perfil eco reduce animaciones
+   ══════════════════════════════════════════ */
+html.perf-reduce-motion *,
+html.perf-reduce-motion *::before,
+html.perf-reduce-motion *::after {
+  animation-duration:   0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration:  0.01ms !important;
+  scroll-behavior:      auto   !important;
 }

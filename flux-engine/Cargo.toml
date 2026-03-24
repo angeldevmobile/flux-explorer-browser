@@ -1,0 +1,53 @@
+[package]
+name = "orion-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Orion minimal HTML rendering engine"
+
+[dependencies]
+# smallvec: evita heap allocation para colecciones pequeñas (atributos, hijos)
+smallvec = "1.13"
+# HTTP async para el fetcher y el servidor Axum
+reqwest    = { version = "0.12", features = ["rustls-tls", "blocking"], default-features = false }
+tokio      = { version = "1", features = ["rt-multi-thread", "macros"] }
+axum       = "0.8"
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+tower-http = { version = "0.6", features = ["cors"] }
+# Ventana nativa + WebView (núcleo del browser)
+tao        = "0.30"
+wry        = "0.47"
+# Decodificar el icono .ico/.png para la ventana nativa
+image      = { version = "0.25", default-features = false, features = ["ico", "png"] }
+# ── Fase 4: renderer de píxeles real ──────────────────────────
+winit      = "0.29"
+softbuffer = "0.4"
+fontdue    = "0.8"
+# ── Fase 5: JavaScript ligero ──────────────────────────────────
+rquickjs   = { version = "0.6", features = ["loader"] }
+# ── Fase 6: Seguridad (fetch síncrono para JS) ────────────────
+
+[[bin]]
+name = "orion-engine"
+path = "src/main.rs"
+
+[[bin]]
+name = "orion-browser"
+path = "src/bin/browser.rs"
+
+[[bin]]
+name = "orion-render"
+path = "src/bin/render.rs"
+
+[lib]
+name = "orion_engine"
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+# panic = "abort" removido: wry/WebView2 necesita stack unwinding para su interop C++
+
+[profile.dev]
+opt-level = 1

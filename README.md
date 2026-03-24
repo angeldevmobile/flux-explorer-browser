@@ -1,73 +1,585 @@
-# Welcome to your Lovable project
+<div align="center">
 
-## Project info
+# Flux Browser
 
-**URL**: https://lovable.dev/projects/e9ada0f8-d603-4f33-9ba8-a8d3b3b67337
+**Navegador web construido desde cero con motor propio en Rust, UI en React y backend Node.js**
 
-## How can I edit this code?
+[![Rust](https://img.shields.io/badge/Rust-2021-orange?logo=rust)](https://www.rust-lang.org/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.2-cyan)](https://github.com)
 
-There are several ways of editing your application.
+[Arquitectura](#arquitectura) · [Motor Rust](#flux-engine) · [Búsqueda](#flux-search) · [Backend](#flux-backend) · [Beta](#beta--primeros-pasos) · [Roadmap](#roadmap)
 
-**Use Lovable**
+</div>
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e9ada0f8-d603-4f33-9ba8-a8d3b3b67337) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## ¿Qué es Flux?
 
-**Use your preferred IDE**
+Flux es un navegador web construido desde cero en Rust. Su núcleo — **flux-engine** — implementa un pipeline completo de renderizado HTML/CSS, un motor JavaScript ligero basado en QuickJS, y una capa de seguridad propia. La superficie de renderizado usa el WebView nativo del sistema operativo (WebView2 en Windows, WebKit en macOS/Linux) vía `wry` — la misma base de Tauri.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+> El engine es el cerebro. El WebView es la pantalla.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+La búsqueda corre sobre **Flux Search**: agrega resultados de múltiples fuentes via SearXNG self-hosted y los re-rankea con BM25 propio. Sin Google. Sin Bing. Sin dependencias externas visibles.
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Por qué esta arquitectura
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Los navegadores más exitosos no construyeron su propio motor de renderizado completo desde el día 1 — construyeron su valor por encima de uno existente:
 
-# Step 3: Install the necessary dependencies.
-npm i
+| Browser | Su engine propio (el valor real) | Superficie de render |
+|---|---|---|
+| **Brave** | Ad blocking · Rewards · Privacy | Chromium (Blink) |
+| **Arc** | Spaces · AI · UX innovador | Chromium |
+| **Firefox Focus** | Privacy core · Tracking protection | WebKit |
+| **Flux** | Motor Rust propio · Search · Privacy · BM25 · JS sandbox · CSP | WebView2 / WebKit |
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+El 70% de las vulnerabilidades de Chrome y Firefox son errores de memoria en C++. Rust los elimina en compile time. El engine de Flux es seguro por construcción.
+
+---
+
+## Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        FLUX BROWSER                            │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              chrome_view  (WebView2/WebKit)              │   │
+│  │         React UI — tabs · barra · settings · search      │   │
+│  └─────────────────────────┬────────────────────────────────┘   │
+│                            │  IPC (wry)                         │
+│  ┌─────────────────────────▼────────────────────────────────┐   │
+│  │            content_view  (WebView2/WebKit)               │   │
+│  │         Renderiza páginas web externas http(s)://        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                FLUX ENGINE  (Rust) :4000                │   │
+│  │                                                          │   │
+│  │  HTML/CSS Pipeline          JavaScript (QuickJS)         │   │
+│  │  ┌──────────────┐           ┌──────────────────────┐     │   │
+│  │  │  Tokenizer   │           │  rquickjs sandbox    │     │   │
+│  │  │  DOM arena   │           │  DOM bindings        │     │   │
+│  │  │  CSS cascade │           │  fetch() real HTTPS  │     │   │
+│  │  │  Inline layout│          │  addEventListener    │     │   │
+│  │  │  Word wrap   │           │  DOMContentLoaded    │     │   │
+│  │  │  Display list│           └──────────────────────┘     │   │
+│  │  │  Soft renderer│                                        │   │
+│  │  │  Glyph atlas │          Security Layer                │   │
+│  │  └──────────────┘          ┌──────────────────────┐     │   │
+│  │                            │  CSP enforcement     │     │   │
+│  │  Search & Ranking          │  HTTPS-only mode     │     │   │
+│  │  ┌──────────────┐          │  HSTS preload list   │     │   │
+│  │  │  BM25 ranker │          │  Ad/tracker blocker  │     │   │
+│  │  │  Fetcher     │          │  JS memory sandbox   │     │   │
+│  │  │  Extractor   │          └──────────────────────┘     │   │
+│  │  └──────────────┘                                        │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              flux-backend  (Node.js) :3000              │   │
+│  │    Historia · Tabs · Bookmarks · Auth · Gemini IA        │   │
+│  └─────────────────────────┬────────────────────────────────┘   │
+│                            ▼                                    │
+│                       PostgreSQL                                │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              SearXNG  (Docker) :8080                     │   │
+│  │      DuckDuckGo · Brave Search · Wikipedia · más         │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## flux-engine
 
-**Use GitHub Codespaces**
+El núcleo de Flux. Escrito completamente en Rust. No usa Electron, no usa Chromium, no usa Node.js.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Pipeline HTML/CSS/JS
 
-## What technologies are used for this project?
+```
+URL
+ └─→ Fetcher (reqwest + rustls)
+      ├─→ SecurityLayer.check_url()
+      │     · HTTPS upgrade (HSTS preload)
+      │     · Ad/tracker block
+      │     · CSP del servidor
+      └─→ HTML
+           └─→ Tokenizer  (zero-copy, &str sin allocar)
+                └─→ Parser  (DOM arena — Vec<Node> + NodeId)
+                     ├─→ CSS Cascade  (especificidad, herencia, UA stylesheet)
+                     ├─→ JS Runtime  (QuickJS sandbox)
+                     │     · DOM bindings completos
+                     │     · fetch() real HTTPS + CSP connect-src
+                     │     · addEventListener / DOMContentLoaded / load
+                     │     · createElement / appendChild funcional
+                     │     · Sandbox: 16 MB heap · 512 KB stack
+                     └─→ Layout Engine
+                          · Block formatting context
+                          · Inline formatting context + word wrapping
+                          · text-align (left/center/right)
+                          └─→ Display List (paint commands)
+                               └─→ OrionSoftRenderer
+                                    · Pixel buffer XRGB8888
+                                    · Glyph atlas (fontdue cache)
+                                    · Alpha blending
+                                    · softbuffer (DXGI/Metal)
+```
 
-This project is built with:
+### Fases del motor completadas
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Fase | Componente | Estado |
+|---|---|---|
+| 1 | Tokenizer zero-copy + Parser DOM arena | ✅ |
+| 2 | Style resolution + UA stylesheet completo | ✅ |
+| 3 | Inline layout + word wrapping + text-align | ✅ |
+| 4 | OrionSoftRenderer — pixel buffer real con fontdue | ✅ |
+| 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | ✅ |
+| 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | ✅ |
+| 7 | Descargador de medios — integración yt-dlp con progreso en tiempo real | ✅ |
+| 8 | Mute por pestaña — control de audio vía IPC | ✅ |
 
-## How can I deploy this project?
+### JavaScript (Fase 5)
 
-Simply open [Lovable](https://lovable.dev/projects/e9ada0f8-d603-4f33-9ba8-a8d3b3b67337) and click on Share -> Publish.
+Motor JS ligero basado en **rquickjs** (QuickJS embebido en Rust, ~10 MB vs ~100 MB de V8).
 
-## Can I connect a custom domain to my Lovable project?
+**APIs implementadas:**
+- `document.getElementById / querySelector / querySelectorAll`
+- `document.createElement / appendChild` — nodos dinámicos reales
+- `element.textContent / innerHTML / style / classList`
+- `element.getAttribute / setAttribute`
+- `addEventListener / removeEventListener / dispatchEvent`
+- `window.setTimeout` (síncrono al final del script)
+- `fetch()` — request HTTPS real con bloqueo CSP `connect-src`
+- `console.log/warn/error/debug/info`
+- Auto-fire `DOMContentLoaded` + `load` al terminar los scripts
 
-Yes, you can!
+**Seguridad del sandbox:**
+- 16 MB heap máximo
+- 512 KB stack máximo
+- Sin acceso al filesystem
+- `fetch()` bloqueado para HTTP no-HTTPS
+- `fetch()` bloqueado por CSP `connect-src` del servidor
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Seguridad (Fase 6)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+| Feature | Implementación |
+|---|---|
+| HTTPS-only | Upgrade automático HTTP → HTTPS en todas las requests |
+| HSTS preload | Lista embebida de 20+ dominios de alto tráfico |
+| CSP enforcement | Parseo de `Content-Security-Policy` del servidor · bloqueo inline scripts · bloqueo `connect-src` en JS fetch |
+| Ad/tracker blocker | Lista de ~40 dominios conocidos (EasyList/EasyPrivacy subset) |
+| JS sandbox | QuickJS con límites de memoria estrictos por tab |
+| URL security | Validación pre-request en fetcher y en JS |
+
+### Decisiones de memoria
+
+| Técnica | Beneficio |
+|---|---|
+| `&'a str` en tokens y DOM | 0 copias del HTML fuente |
+| `Vec<Node>` arena + `NodeId(usize)` | Sin `Box`/`Rc`, cache-friendly, sin fragmentación |
+| `SmallVec<[Attr; 4]>` | Atributos en stack si son ≤ 4 |
+| `ComputedStyle` plano | Sin heap, cache-line friendly |
+| `LayoutBox` Vec contiguo | Sin overhead por nodo |
+
+### Seguridad por diseño (Rust vs C++)
+
+| Vulnerabilidad | C/C++ (Chrome/Firefox) | Rust (Flux) |
+|---|---|---|
+| Buffer overflow | Posible | Imposible en safe Rust |
+| Use-after-free | Posible | Imposible — borrow checker |
+| Null pointer | Posible | Imposible — no hay null |
+| Data races | Posible | Imposible en compile time |
+
+### Estructura del engine
+
+```
+flux-engine/
+├── Cargo.toml
+└── src/
+    ├── lib.rs              ← run_pipeline() / run_pipeline_with_security()
+    ├── main.rs             ← entry point + servidor Axum :4000
+    ├── bin/
+    │   ├── browser.rs      ← ventana nativa (tao + wry)
+    │   └── render.rs       ← demo del renderer de píxeles
+    ├── api/                ← endpoints HTTP (POST /process, GET /health)
+    ├── fetcher/            ← reqwest HTTP client + SecurityLayer
+    ├── parsing/
+    │   ├── tokenizer.rs    ← zero-copy HTML tokenizer
+    │   └── parser.rs       ← tokens → DOM arena
+    ├── dom/                ← Vec<Node> arena + NodeId
+    ├── style/
+    │   ├── mod.rs          ← ComputedStyle + StyleMap
+    │   ├── css.rs          ← parser CSS (colores, longitudes, propiedades)
+    │   ├── cascade.rs      ← resolución de especificidad + herencia
+    │   └── ua.rs           ← UA stylesheet completo (h1-h6, p, ul, table...)
+    ├── layout/
+    │   ├── mod.rs          ← block formatting context
+    │   └── inline.rs       ← inline layout + word wrap + text-align
+    ├── paint/              ← display list de comandos
+    ├── renderer/
+    │   ├── mod.rs          ← ConsoleRenderer (debug)
+    │   ├── soft.rs         ← OrionSoftRenderer (pixel buffer)
+    │   └── font.rs         ← gestión de fuentes
+    ├── js/                 ← JavaScript runtime (QuickJS)
+    ├── security/           ← CSP · HTTPS · HSTS · ad blocker
+    ├── extractor/          ← extractor de metadatos HTML
+    └── ranker/             ← BM25 ranking
+```
+
+### Ejecutar el motor
+
+```bash
+cd flux-engine
+
+# Tests del pipeline completo (23 tests)
+cargo test
+
+# Demo en consola (display list)
+cargo run
+
+# Renderer de píxeles — abre ventana con softbuffer
+cargo run --bin flux-render
+
+# Navegador completo (requiere UI en :8082)
+cargo run --bin flux-browser
+```
+
+---
+
+## Flux Search
+
+Motor de búsqueda propio integrado en el browser.
+
+### Flujo
+
+```
+Usuario escribe en barra → flux://search?q=...
+        ↓
+flux-backend (:3000)
+  · Consulta SearXNG self-hosted (:8080)
+  · SearXNG agrega: DuckDuckGo · Brave Search · Wikipedia · más
+        ↓
+flux-engine (:4000)  POST /process
+  · fetch_and_extract() — descarga y parsea cada URL
+  · SecurityLayer — filtra URLs bloqueadas
+  · BM25 re-ranking
+        ↓
+SearchPage (React)
+  · Resultados con identidad Flux
+  · Sin referencia a buscadores externos
+```
+
+### Endpoints del engine (Axum)
+
+| Endpoint | Descripción |
+|---|---|
+| `POST /process` | Recibe `{ query, urls[] }` → descarga, extrae, rankea con BM25 |
+| `GET /health` | Estado del engine |
+
+### Endpoints del backend (Express)
+
+| Endpoint | Descripción |
+|---|---|
+| `GET /api/search/web?q=` | Búsqueda web via SearXNG + re-ranking Rust |
+| `GET /api/search?q=` | Búsqueda en historial y favoritos del usuario |
+| `GET /api/suggestions?q=` | Autocompletado en barra de direcciones |
+| `GET /api/news` | Noticias en tiempo real vía RSS (BBC, TechCrunch, NASA, Al Jazeera) — sin API key |
+| `GET /api/weather?city=` | Clima actual vía wttr.in — detecta ubicación por IP si no se especifica ciudad |
+| `GET /api/trends` | Tendencias de Google Trends (US) vía RSS — sin API key |
+
+---
+
+## flux-backend
+
+Backend Node.js + Express que gestiona los datos de usuario del browser.
+
+### Stack
+
+- **Runtime:** Node.js + TypeScript
+- **Framework:** Express 5
+- **ORM:** Prisma
+- **Base de datos:** PostgreSQL
+- **Auth:** JWT + bcrypt
+- **IA:** Google Gemini
+- **Voz:** Google Cloud Text-to-Speech
+- **Seguridad:** Helmet + express-rate-limit
+
+### Modelos
+
+| Modelo | Descripción |
+|---|---|
+| `User` | Usuarios del browser |
+| `History` | Historial de navegación |
+| `Favorite` | Bookmarks |
+| `Tab` / `TabGroup` | Tabs y grupos persistentes |
+| `UserPreference` | Configuración del browser |
+| `BrowsingStats` / `SiteVisit` | Estadísticas de uso |
+| `BlockedSite` | Bloqueador de sitios (Focus Mode) |
+| `QuickNote` / `QuickTask` | Notas y tareas rápidas |
+| `FocusSession` | Sesiones de enfoque |
+| `AiConversation` | Historial con Gemini |
+| `DetectedSong` | Canciones detectadas |
+| `MediaDownload` | Descargas de medios |
+
+---
+
+## UI
+
+Chrome del navegador construido en React + Tailwind. Rodea el contenido con la identidad visual de Flux.
+
+### Stack
+
+- **Framework:** React 18 + TypeScript
+- **Estilos:** Tailwind CSS 3 + shadcn/ui
+- **Routing:** React Router v6
+- **Estado servidor:** TanStack Query
+- **Build:** Vite 5
+
+### Páginas internas (`flux://`)
+
+| URL | Descripción |
+|---|---|
+| `flux://newtab` | Nueva pestaña con búsqueda, clima, noticias RSS y tendencias |
+| `flux://search?q=` | Resultados de búsqueda Flux |
+| `flux://ai?q=` | Chat con Gemini IA (página completa) |
+| `flux://settings` | Configuración del browser |
+| `flux://about` | Información de la versión |
+| `flux://view-source` | Código fuente de la página actual |
+| `flux://history` | Historial de navegación |
+| `flux://bookmarks` | Gestor de bookmarks |
+| `flux://downloads` | Panel de descargas |
+
+### Componentes destacados
+
+| Componente | Descripción |
+|---|---|
+| `OrionAISidePanel` | Panel lateral flotante de IA — chat Gemini contextual con URL y título de página actual, renderizado Markdown, animación de escritura |
+| `NewTabPage` | Nueva pestaña con widget de clima (wttr.in), feed de noticias RSS, tendencias de Google y búsqueda por voz |
+| `MediaDownloaderModal` | Descargador de medios con yt-dlp — progreso en tiempo real (%, velocidad, bytes) |
+| `FavoritesPanel` | Panel de favoritos/bookmarks integrado |
+| `DevToolsSection` | Sección de herramientas de desarrollador en el menú |
+
+---
+
+## Beta — Primeros Pasos
+
+### Estado actual de la beta (v1.0.0-beta.2)
+
+**Funciona hoy:**
+- Navegación web completa via WebView2 (Windows) / WebKit (macOS/Linux)
+- Búsqueda propia con re-ranking BM25 en Rust
+- HTTPS upgrade automático + bloqueo de trackers en todas las requests
+- Chrome React completo: tabs, grupos de tabs, bookmarks, historial
+- Split view / Side panel
+- Focus Mode con bloqueo de sitios
+- Reader Mode
+- Flux AI (Gemini) — página completa + panel lateral flotante contextual
+- Tema oscuro/claro/system
+- Barra de bookmarks
+- Estadísticas de navegación
+- **Descargador de medios** (yt-dlp integrado) — progreso en tiempo real, soporte de video/audio
+- **Mute por pestaña** — silenciar/restaurar audio desde la UI
+- **Nueva pestaña enriquecida** — clima (wttr.in), noticias RSS, Google Trends, búsqueda por voz
+- **Panel de favoritos** integrado
+- **Herramientas de desarrollador** en el menú
+
+**En desarrollo activo (motor propio):**
+- Renderer de píxeles propio (OrionSoftRenderer) — implementado, pendiente de conectar al browser
+- JavaScript engine (QuickJS) — implementado con DOM bindings, fetch, eventos
+- CSS cascade completo — implementado
+- Integración del renderer con la ventana nativa
+
+### Requisitos
+
+- [Rust](https://rustup.rs/) 1.75+
+- [Node.js](https://nodejs.org/) 20+
+- [PostgreSQL](https://www.postgresql.org/) 15+
+- [Docker Desktop](https://www.docker.com/) (para SearXNG)
+- Windows 10/11 con WebView2 (preinstalado en Win11) o macOS 11+
+
+### Instalación
+
+```bash
+# 1. Clonar
+git clone https://github.com/GabrielZapata/flux-browser.git
+cd flux-browser
+
+# 2. SearXNG
+docker compose up -d
+
+# 3. Backend
+cd flux-backend
+cp .env.example .env   # completar variables (ver abajo)
+npm install
+npx prisma migrate dev
+npm run dev            # :3000
+cd ..
+
+# 4. UI React
+npm install
+npm run dev            # :8082
+
+# 5. Motor Rust (en otra terminal)
+cd flux-engine
+cargo run --bin flux-browser   # abre la ventana nativa
+```
+
+### Variables de entorno del backend
+
+```env
+DATABASE_URL=postgresql://usuario:password@localhost:5432/orion
+JWT_SECRET=cambia_esto_por_un_secret_largo
+GEMINI_API_KEY=tu_api_key_aqui          # opcional, para Flux AI
+SEARXNG_URL=http://localhost:8080
+ORION_ENGINE_URL=http://localhost:4000
+PORT=3000
+```
+
+> Las features de IA (Flux AI, detección de canciones) requieren `GEMINI_API_KEY`.
+> La búsqueda web y el resto del browser funcionan sin ella.
+
+---
+
+## Roadmap
+
+### flux-engine — Motor de renderizado propio
+
+- [x] Tokenizer zero-copy
+- [x] Parser DOM arena-based
+- [x] CSS cascade con especificidad (tag · clase · id · inline)
+- [x] UA stylesheet completo (h1-h6, p, ul, ol, table, form, input...)
+- [x] Inline layout + word wrapping
+- [x] text-align (left / center / right)
+- [x] Display list con paint commands
+- [x] OrionSoftRenderer — pixel buffer XRGB8888
+- [x] Glyph atlas con fontdue (cache de glifos rasterizados)
+- [x] Alpha blending
+- [x] JavaScript ligero — rquickjs (QuickJS embebido, ~10 MB)
+- [x] DOM bindings completos (getElementById, querySelector, textContent, style, classList...)
+- [x] `createElement` / `appendChild` funcional
+- [x] `addEventListener` / `removeEventListener` / `dispatchEvent`
+- [x] Auto-fire `DOMContentLoaded` + `load`
+- [x] `fetch()` real HTTPS con bloqueo por CSP connect-src
+- [x] SecurityLayer — CSP del servidor
+- [x] SecurityLayer — HTTPS-only + HSTS preload
+- [x] SecurityLayer — Ad/tracker blocker
+- [x] JS sandbox — límites de heap/stack por tab
+- [ ] Conectar OrionSoftRenderer al content_view de la ventana nativa
+- [ ] Flexbox layout
+- [ ] Imágenes (`<img>` decodificada y pintada en el buffer)
+- [ ] Cookie jar por dominio
+- [ ] Caché HTTP (ETag, Cache-Control)
+- [ ] `setInterval` / eventos de input reales
+
+### wry — Ventana nativa
+
+- [x] Ventana nativa con `tao` (sin decoraciones, transparente)
+- [x] `chrome_view` — WebView React UI
+- [x] `content_view` — WebView páginas externas
+- [x] IPC bidireccional (navigate, minimize, maximize, chrome_height)
+- [x] Resize dinámico de los dos WebViews
+- [x] HTTPS upgrade antes de `load_url()`
+- [ ] Interceptar peticiones con el engine (reemplazar content_view por renderer propio)
+
+### Flux Search
+
+- [x] SearXNG self-hosted (Docker)
+- [x] Re-ranking BM25 en Rust
+- [x] SearchPage con identidad Flux
+- [x] Paginación de resultados
+- [x] Autocompletado en barra de URL
+- [ ] Re-ranking personalizado por historial del usuario
+- [ ] Caché de búsquedas
+- [ ] Resumen IA de resultados
+
+### Backend + Persistencia
+
+- [x] Auth JWT + bcrypt
+- [x] Historial, bookmarks, tabs, preferencias
+- [x] Grupos de tabs
+- [x] Estadísticas de navegación (BrowsingStats, SiteVisit, HourlyActivity)
+- [x] Focus Mode con BlocketSite
+- [x] Gemini IA (chat, resúmenes)
+- [x] Detección de canciones
+- [x] Registro de descargas
+- [ ] Migración a SQLite (sin dependencia de PostgreSQL para beta local)
+- [ ] Sincronización entre dispositivos
+
+### UI
+
+- [x] Chrome React con identidad Flux
+- [x] Barra de direcciones con búsqueda integrada
+- [x] Sistema de tabs con grupos y colores
+- [x] Split view / Side panel
+- [x] Barra de bookmarks
+- [x] Focus Mode
+- [x] Reader Mode
+- [x] Panel de descargas
+- [x] Flux AI (Gemini) — página completa
+- [x] Panel lateral flotante de IA (OrionAISidePanel) — contextual con URL y título
+- [x] Selector de tema
+- [x] Estadísticas de uso
+- [x] Configuración completa
+- [x] Nueva pestaña con clima, noticias RSS y Google Trends
+- [x] Descargador de medios (yt-dlp) con progreso en tiempo real
+- [x] Mute por pestaña
+- [x] Panel de favoritos
+- [x] Herramientas de desarrollador
+- [ ] Panel de privacidad en tiempo real (trackers bloqueados, upgrades HTTPS)
+- [ ] Historial visual con línea de tiempo
+
+---
+
+## Estructura del proyecto
+
+```
+flux-browser/
+├── flux-engine/          ← Motor del browser (Rust)
+│   └── src/
+│       ├── bin/browser.rs ← Ventana nativa (tao + wry)
+│       ├── api/           ← Axum HTTP server :4000
+│       ├── js/            ← JavaScript runtime (QuickJS)
+│       ├── security/      ← CSP · HTTPS · HSTS · ad blocker
+│       ├── renderer/      ← OrionSoftRenderer (pixel buffer)
+│       ├── layout/        ← Block + Inline layout
+│       ├── style/         ← CSS cascade + UA stylesheet
+│       ├── paint/         ← Display list
+│       ├── parsing/       ← Tokenizer + DOM parser
+│       ├── fetcher/       ← HTTP client + SecurityLayer
+│       ├── extractor/     ← Metadata extractor
+│       └── ranker/        ← BM25 ranking
+├── flux-backend/         ← API de usuario (Node.js + Express :3000)
+├── searxng/               ← Config SearXNG (Docker :8080)
+├── docker-compose.yml     ← SearXNG + Redis
+├── src/                   ← React UI (chrome del browser :8082)
+│   ├── components/browser/
+│   ├── hooks/
+│   ├── pages/
+│   └── contexts/
+├── public/
+├── index.html
+├── vite.config.ts
+└── package.json
+```
+
+---
+
+## Contribuir
+
+1. Fork del repositorio
+2. Crear rama: `git checkout -b feature/nombre`
+3. Commit: `git commit -m "feat: descripción"`
+4. Push: `git push origin feature/nombre`
+5. Abrir Pull Request
+
+---
+
+## Licencia
+
+MIT © Gabriel Zapata

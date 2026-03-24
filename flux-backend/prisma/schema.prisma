@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  password  String
+  username  String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  favorites Favorite[]
+  history   History[]
+  tabs      Tab[]
+  quickNotes     QuickNote[]
+  quickTasks     QuickTask[]
+  focusSessions  FocusSession[]
+  blockedSites   BlockedSite[]
+  browsingStats  BrowsingStats[]
+  siteVisits     SiteVisit[]
+  preferences    UserPreference?
+  hourlyActivities HourlyActivity[]
+  tabGroups  TabGroup[]
+  detectedSongs  DetectedSong[]
+  mediaDownloads MediaDownload[]
+  aiConversations AiConversation[]
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  url       String
+  title     String
+  icon      String?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model History {
+  id        String   @id @default(uuid())
+  url       String
+  title     String
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Tab {
+  id        String   @id @default(uuid())
+  url       String
+  title     String
+  favicon   String?
+  groupId   String?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TabGroup {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  collapsed Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model QuickNote {
+  id        String   @id @default(cuid())
+  text      String
+  url       String
+  color     String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuickTask {
+  id        String   @id @default(cuid())
+  text      String
+  completed Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FocusSession {
+  id            String   @id @default(cuid())
+  durationMs    Int
+  elapsedMs     Int      @default(0)
+  completed     Boolean  @default(false)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BlockedSite {
+  id     String @id @default(cuid())
+  domain String
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([domain, userId])
+}
+
+model BrowsingStats {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now()) @db.Date
+  minutesBrowsed  Int      @default(0)
+  sitesVisited    Int      @default(0)
+  trackersBlocked Int      @default(0)
+  dataSavedBytes  BigInt   @default(0)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([date, userId])
+}
+
+model SiteVisit {
+  id        String   @id @default(cuid())
+  domain    String
+  minutes   Int      @default(0)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now()) @db.Date
+
+  @@unique([domain, userId, date])
+}
+
+model UserPreference {
+  id              String @id @default(cuid())
+  theme           String @default("dark")
+  defaultZoom     Int    @default(100)
+  blockTrackers   Boolean @default(true)
+  blockThirdPartyCookies Boolean @default(true)
+  antiFingerprint Boolean @default(true)
+  forceHttps      Boolean @default(true)
+  blockMining     Boolean @default(true)
+  userId          String @unique
+  user            User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HourlyActivity {
+  id     String   @id @default(cuid())
+  date   DateTime @default(now()) @db.Date
+  hour   Int
+  hits   Int      @default(1)
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([date, hour, userId])
+}
+
+model DetectedSong {
+  id         String   @id @default(cuid())
+  title      String
+  artist     String
+  album      String?
+  coverUrl   String?
+  previewUrl String?
+  sourceUrl  String
+  confidence Float    @default(0)
+  genre      String?
+  year       String?
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model MediaDownload {
+  id        String   @id @default(cuid())
+  url       String
+  title     String
+  type      String   // "image" | "video" | "audio" | "file"
+  size      Int?
+  sourceUrl String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AiConversation {
+  id        String   @id @default(cuid())
+  query     String
+  response  String   @db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

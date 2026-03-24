@@ -1,23 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { favoriteService, authService, Favorite as ApiFavorite } from "@/services/api";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { favoriteService, authService } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
-
-interface Favorite {
-  id: string;
-  title: string;
-  url: string;
-  icon?: string;
-}
-
-interface FavoritesContextType {
-  favorites: Favorite[];
-  addFavorite: (favorite: Omit<Favorite, "id">) => Promise<void>;
-  removeFavorite: (id: string) => Promise<void>;
-  isFavorite: (url: string) => boolean;
-  loading: boolean;
-}
-
-const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
+import {
+  FavoritesContext,
+  extractApiError,
+  type Favorite,
+} from "./definitions-favorite";
 
 export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
@@ -25,33 +13,39 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadFavorites();
+    if (!authService.isAuthenticated()) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await favoriteService.getFavorites();
+        if (!cancelled) {
+          setFavorites(
+            data.map((fav) => ({
+              id: fav.id,
+              title: fav.title,
+              url: fav.url,
+              icon: fav.icon || undefined,
+            }))
+          );
+        }
+      } catch {
+        // silencioso en carga inicial
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  const loadFavorites = async () => {
-    if (!authService.isAuthenticated()) return;
-    
-    try {
-      setLoading(true);
-      const data = await favoriteService.getFavorites();
-      setFavorites(data.map(fav => ({
-        id: fav.id,
-        title: fav.title,
-        url: fav.url,
-        icon: fav.icon || undefined,
-      })));
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addFavorite = async (favorite: Omit<Favorite, "id">) => {
+  const addFavorite = useCallback(async (favorite: Omit<Favorite, "id">) => {
     if (!authService.isAuthenticated()) {
       toast({
-        title: "Error",
-        description: "Debes iniciar sesión para guardar favoritos",
+        title: "Inicia sesión",
+        description: "Necesitas una cuenta para guardar favoritos",
         variant: "destructive",
       });
       return;
@@ -59,57 +53,67 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const newFav = await favoriteService.addFavorite(favorite);
-      setFavorites([...favorites, {
-        id: newFav.id,
-        title: newFav.title,
-        url: newFav.url,
-        icon: newFav.icon || undefined,
-      }]);
-    } catch (error: unknown) {
-      let errorMessage = "Error al agregar favorito";
-      if (error && typeof error === "object" && "response" in error && error.response && typeof error.response === "object" && "data" in error.response && error.response.data && typeof error.response.data === "object" && "error" in error.response.data) {
-        errorMessage = (error.response as { data?: { error?: string } }).data?.error || errorMessage;
-      }
+      setFavorites((prev) => [
+        ...prev,
+        {
+          id: newFav.id,
+          title: newFav.title,
+          url: newFav.url,
+          icon: newFav.icon || undefined,
+        },
+      ]);
+      toast({ title: "⭐ Favorito guardado" });
+    } catch (error) {
       toast({
         title: "Error",
-        description: errorMessage,
+        description: extractApiError(error, "No se pudo agregar el favorito"),
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const removeFavorite = async (id: string) => {
+  const removeFavorite = useCallback(async (id: string) => {
+    const prev = favorites;
+    setFavorites((f) => f.filter((fav) => fav.id !== id));
+
     try {
       await favoriteService.deleteFavorite(id);
-      setFavorites(favorites.filter((f) => f.id !== id));
-    } catch (error: unknown) {
-      let errorMessage = "Error al eliminar favorito";
-      if (error && typeof error === "object" && "response" in error && error.response && typeof error.response === "object" && "data" in error.response && error.response.data && typeof error.response.data === "object" && "error" in error.response.data) {
-        errorMessage = (error.response as { data?: { error?: string } }).data?.error || errorMessage;
-      }
+    } catch (error) {
+      setFavorites(prev);
       toast({
         title: "Error",
-        description: errorMessage,
+        description: extractApiError(error, "No se pudo eliminar el favorito"),
         variant: "destructive",
       });
     }
-  };
+  }, [favorites, toast]);
 
-  const isFavorite = (url: string) => {
-    return favorites.some((f) => f.url === url);
-  };
+  const isFavorite = useCallback(
+    (url: string) => favorites.some((f) => f.url === url),
+    [favorites]
+  );
+
+  const getFavoriteByUrl = useCallback(
+    (url: string) => favorites.find((f) => f.url === url),
+    [favorites]
+  );
+
+  const value = useMemo(
+    () => ({
+      favorites,
+      addFavorite,
+      removeFavorite,
+      isFavorite,
+      getFavoriteByUrl,
+      loading,
+      count: favorites.length,
+    }),
+    [favorites, addFavorite, removeFavorite, isFavorite, getFavoriteByUrl, loading]
+  );
 
   return (
-    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, isFavorite, loading }}>
+    <FavoritesContext.Provider value={value}>
       {children}
     </FavoritesContext.Provider>
   );
-};
-
-export const useFavorites = () => {
-  const context = useContext(FavoritesContext);
-  if (!context) {
-    throw new Error("useFavorites must be used within FavoritesProvider");
-  }
-  return context;
 };

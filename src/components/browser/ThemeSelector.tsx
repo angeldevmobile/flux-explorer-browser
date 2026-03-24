@@ -1,8 +1,7 @@
 import { Palette, Sun, Moon, Zap, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/contexts/ThemeContext";
-import {
-  DropdownMenu,
+import { useTheme } from "@/hooks/useTheme";
+import { DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -10,23 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Slider } from "@/components/ui/slider";
-import { useState } from "react";
-
-type ThemeValue = "default" | "ocean" | "sunset" | "forest" | "purple" | "amoled";
-
-const themes: Array<{ value: ThemeValue; label: string; color: string }> = [
-  { value: "default", label: "Predeterminado", color: "bg-gradient-primary" },
-  { value: "ocean", label: "Océano", color: "bg-gradient-to-r from-cyan-500 to-blue-500" },
-  { value: "sunset", label: "Atardecer", color: "bg-gradient-to-r from-orange-500 to-pink-500" },
-  { value: "forest", label: "Bosque", color: "bg-gradient-to-r from-green-500 to-teal-500" },
-  { value: "purple", label: "Púrpura", color: "bg-gradient-to-r from-purple-500 to-pink-500" },
-  { value: "amoled", label: "AMOLED", color: "bg-black" },
-];
 
 export const ThemeSelector = () => {
-  const { theme, mode, setTheme, setMode } = useTheme();
-  const [opacity, setOpacity] = useState(100);
-  const [blur, setBlur] = useState(10);
+  const { themeId, mode, setTheme, setMode, allThemes, opacity, blur, setOpacity, setBlur } = useTheme();
 
   return (
     <DropdownMenu>
@@ -74,17 +59,27 @@ export const ThemeSelector = () => {
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="text-xs">Temas</DropdownMenuLabel>
         
-        {/* Grid de Temas */}
-        <div className="px-4 py-2 grid grid-cols-3 gap-2">
-          {themes.map((t) => (
+        {/* Grid de Temas — usa los temas reales */}
+        <div className="px-4 py-2 grid grid-cols-4 gap-2">
+          {allThemes.map((t) => (
             <button
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              className={`h-10 rounded-lg transition-all ${t.color} ${
-                theme === t.value ? 'ring-2 ring-primary scale-105' : 'opacity-70 hover:opacity-100'
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={`h-10 rounded-lg transition-all flex items-center justify-center ${
+                themeId === t.id
+                  ? "ring-2 ring-primary scale-105"
+                  : "opacity-70 hover:opacity-100"
               }`}
-              title={t.label}
-            />
+              style={{
+                background: `linear-gradient(135deg, ${t.colors.dark.accentGradient[0]}, ${t.colors.dark.accentGradient[1]})`,
+              }}
+              title={t.name}
+            >
+              <span
+                className="w-4 h-4 text-white"
+                dangerouslySetInnerHTML={{ __html: t.iconSvg }}
+              />
+            </button>
           ))}
         </div>
 
@@ -123,7 +118,6 @@ export const ThemeSelector = () => {
 
         <DropdownMenuSeparator />
         
-        {/* Botón de Configuración */}
         <DropdownMenuItem className="cursor-pointer">
           <Settings className="h-4 w-4 mr-2" />
           <span>Más configuraciones</span>

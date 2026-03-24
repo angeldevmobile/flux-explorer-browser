@@ -40,3 +40,17 @@
 .read-the-docs {
   color: #888;
 }
+
+.my-element {
+  background: var(--orion-bgPrimary);
+  color: var(--orion-textPrimary);
+  border-color: var(--orion-border);
+}
+
+.my-button {
+  background: linear-gradient(
+    to right,
+    var(--orion-accentGradient-from),
+    var(--orion-accentGradient-to)
+  );
+}

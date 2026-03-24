@@ -1,1061 +1,646 @@
-import { useState, useEffect } from "react";
-import {
-	Plus,
-	Mic,
-	MicOff,
-	Zap,
-	Globe,
-	TrendingUp,
-	Clock,
-	Sparkles,
-	Activity,
-	Shield,
-	Radio,
-	Youtube,
-	Github,
-	Twitter,
-	Mail,
-	Search,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Menu, Globe } from "lucide-react";
 import { BrowserTab } from "./BrowserTab";
 import { AddressBar } from "./AddressBar";
 import { NavigationControls } from "./NavigationControls";
 import { ThemeSelector } from "./ThemeSelector";
 import { FavoritesPanel } from "./FavoritesPanel";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { tabService, historyService, authService } from "@/services/api";
+import { NewTabPage } from "./NewTabPage";
+import { BrowserMenu } from "@/components/menu/MenuOrion";
 import { WebView } from "./WebView";
 import { WindowControls } from "./WindowControls";
-import { voiceService } from "@/services/voiceService";
-import { processVoiceQuery } from "@/services/geminiClient";
-
-interface Tab {
-	id: string;
-	title: string;
-	url: string;
-	favicon?: string;
-}
-
-const QUICK_ACCESS = [
-	{
-		title: "YouTube",
-		url: "youtube.com",
-		icon: Youtube,
-		gradient: "bg-gradient-accent",
-		color: "#FF0000",
-	},
-	{
-		title: "GitHub",
-		url: "github.com",
-		icon: Github,
-		gradient: "bg-gradient-primary",
-		color: "#181717",
-	},
-	{
-		title: "Twitter",
-		url: "twitter.com",
-		icon: Twitter,
-		gradient: "bg-gradient-secondary",
-		color: "#1DA1F2",
-	},
-	{
-		title: "Gmail",
-		url: "gmail.com",
-		icon: Mail,
-		gradient: "bg-gradient-accent",
-		color: "#EA4335",
-	},
-	{
-		title: "Netflix",
-		url: "netflix.com",
-		icon: Zap,
-		gradient: "bg-gradient-primary",
-		color: "#E50914",
-	},
-	{
-		title: "Spotify",
-		url: "spotify.com",
-		icon: Activity,
-		gradient: "bg-gradient-accent",
-		color: "#1DB954",
-	},
-	{
-		title: "LinkedIn",
-		url: "linkedin.com",
-		icon: Globe,
-		gradient: "bg-gradient-secondary",
-		color: "#0A66C2",
-	},
-	{
-		title: "Reddit",
-		url: "reddit.com",
-		icon: TrendingUp,
-		gradient: "bg-gradient-primary",
-		color: "#FF4500",
-	},
-];
-
-const TRENDING = [
-	"Últimas noticias tecnología",
-	"Mejores extensiones navegador 2024",
-	"Tutoriales desarrollo web",
-];
-
-const RECENT = ["orion://configuración", "github.com/orion-browser"];
-
-// Nuevas constantes después de RECENT
-const CATEGORIES = [
-	{
-		title: "Desarrollo",
-		items: [
-			{ title: "Stack Overflow", url: "stackoverflow.com", icon: "Code" },
-			{ title: "MDN Web Docs", url: "developer.mozilla.org", icon: "BookOpen" },
-			{ title: "DevTools", url: "orion://devtools", icon: "Wrench" },
-		],
-	},
-	{
-		title: "Productividad",
-		items: [
-			{ title: "Calendario", url: "calendar.google.com", icon: "Calendar" },
-			{ title: "Notas", url: "keep.google.com", icon: "FileText" },
-			{ title: "Drive", url: "drive.google.com", icon: "Cloud" },
-		],
-	},
-	{
-		title: "Diseño",
-		items: [
-			{ title: "Figma", url: "figma.com", icon: "Palette" },
-			{ title: "Dribbble", url: "dribbble.com", icon: "Image" },
-			{ title: "Behance", url: "behance.net", icon: "Sparkles" },
-		],
-	},
-];
-
-const SHORTCUTS = [
-	{ key: "Ctrl+Shift+N", action: "Nueva ventana privada" },
-	{ key: "Ctrl+T", action: "Nueva pestaña" },
-	{ key: "Ctrl+H", action: "Historial" },
-];
-
-const NEWS_HIGHLIGHTS = [
-	{
-		title: "IA revoluciona el desarrollo web",
-		source: "TechCrunch",
-		time: "Hace 2h",
-		image:
-			"https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=200&fit=crop",
-	},
-	{
-		title: "Nuevo framework JavaScript 2024",
-		source: "Dev.to",
-		time: "Hace 4h",
-		image:
-			"https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=200&fit=crop",
-	},
-	{
-		title: "Seguridad en navegadores modernos",
-		source: "Wired",
-		time: "Hace 6h",
-		image:
-			"https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=400&h=200&fit=crop",
-	},
-];
-
-type VoiceState = "idle" | "listening" | "processing" | "results";
+import { FocusBlockedPage } from "@/pages/FocusBlockedPage";
+import { useFocusBlocker } from "@/hooks/useFocusBlocker";
+import { ViewSourcePage } from "./ViewSourcePage";
+import { OrionAIPage } from "./OrionAIPage";
+import { OrionAISidePanel } from "./OrionAISidePanel";
+import { SearchPage } from "./SearchPage";
+import { ReaderModePage } from "./ReaderModePage";
+import { SettingsPage } from "./SettingsPage";
+import { DownloadsPanel } from "./DownloadsPanel";
+import { ErrorPage } from "./ErrorPage";
+import { HistoryPage } from "./HistoryPage";
+import { BookmarksPage } from "./BookmarksPage";
+import { DownloadsPage } from "./DownloadsPage";
+import type { ErrorCode } from "./ErrorPage";
+// Hooks extraídos
+import { useTabs } from "@/hooks/useTabs";
+import { useTabGroups } from "@/hooks/useTabGroups";
+import { useBrowserNavigation } from "@/hooks/useBrowserNavigation";
+import { useVoice } from "@/hooks/useVoice";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { QUICK_ACCESS } from "@/constants/browser";
+import { useSettings } from "@/contexts/SettingsContext";
+import { useFavorites } from "@/hooks/useFavorite";
 
 export const BrowserWindow = () => {
-	const [tabs, setTabs] = useState<Tab[]>([]);
-	const [activeTabId, setActiveTabId] = useState<string>("");
-	const [loading, setLoading] = useState(true);
-	const [recentSearches, setRecentSearches] = useState<string[]>([]);
-	const { toast } = useToast();
-	const [voiceState, setVoiceState] = useState<VoiceState>("idle");
-	const [transcription, setTranscription] = useState("");
-	const [audioLevels, setAudioLevels] = useState<number[]>(
-		new Array(40).fill(0)
-	);
-	const [suggestions, setSuggestions] = useState<string[]>([]);
+	// ── Hooks de estado ──
+	const {
+		tabs, setTabs, activeTabId, setActiveTabId,
+		loading, loadingTabIds, setTabLoading, isActiveTabLoading,
+		loadTabs, handleNewTab, handleCloseTab,
+	} = useTabs();
+
+	const {
+		tabGroups, loadTabGroups, onGroupTabClosed,
+		handleCreateTabGroup, handleAddTabToGroup, handleRemoveTabFromGroup,
+		handleRemoveSavedTab, handleDeleteGroup, handleToggleGroupCollapse, handleReopenGroupTab,
+	} = useTabGroups({ tabs, setTabs, activeTabId, setActiveTabId });
+
+	const {
+		navigation, handleNavigate, handleBack, handleForward,
+		handleRefresh, handleStop,
+		recentSearches,
+	} = useBrowserNavigation({ tabs, activeTabId, setTabs, setTabLoading });
+
+	const activeTab = tabs.find((t) => t.id === activeTabId);
+
+	const { voiceState, transcription, audioLevels, suggestions, handleVoiceCommand } = useVoice({
+		activeTabUrl: activeTab?.url,
+		onNavigate: handleNavigate,
+	});
+
+	const {
+		workspaceMode, setWorkspaceMode, secondaryUrl, setSecondaryUrl,
+		handleSplitView, handleSidePanel,
+	} = useWorkspace();
+
+	const { settings } = useSettings();
+	const { favorites } = useFavorites();
+
+	// ── UI state local ──
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const [currentZoom, setCurrentZoom] = useState(100);
+
+	const handleZoomChange = (level: number) => {
+		setCurrentZoom(level);
+		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
+		ipc?.postMessage(JSON.stringify({ cmd: "zoom", level }));
+	};
+	const [viewSourceHtml, setViewSourceHtml] = useState<string | null>(null);
+	const [viewSourceUrl, setViewSourceUrl] = useState("");
+	const [navError, setNavError] = useState<{ url: string; code?: ErrorCode } | null>(null);
+	const [privacyMode, setPrivacyMode] = useState(false);
+	const [readerMode, setReaderMode] = useState(false);
+	const [aiPanelOpen, setAiPanelOpen] = useState(false);
+
+	const handlePrivacyModeChange = (value: boolean) => {
+		setPrivacyMode(value);
+	};
+
+	const handleReaderModeChange = (value: boolean) => {
+		setReaderMode(value);
+	};
+	const [focusActive, setFocusActive] = useState(false);
+	const [focusTimeRemaining, setFocusTimeRemaining] = useState("");
+	const [focusBlockedSites, setFocusBlockedSites] = useState<{ id: string; domain: string }[]>([]);
+
+	const { isBlocked, blockedDomain } = useFocusBlocker({
+		isActive: focusActive,
+		blockedSites: focusBlockedSites,
+		currentUrl: activeTab?.url || "",
+	});
 
 	useEffect(() => {
 		loadTabs();
-		loadRecentSearches();
+		loadTabGroups();
+	}, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+	// ── Atajos de teclado globales ───────────────────────────────────────────
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			const ctrl = e.ctrlKey || e.metaKey;
+			if (!ctrl) return;
+
+			switch (e.key.toLowerCase()) {
+				case "l":
+					e.preventDefault();
+					window.dispatchEvent(new CustomEvent("orion:focus-address-bar"));
+					break;
+				case "r":
+					e.preventDefault();
+					handleRefresh();
+					break;
+				case "t":
+					e.preventDefault();
+					handleNewTab();
+					break;
+				case "w":
+					e.preventDefault();
+					if (activeTabId) handleCloseTab(activeTabId, onGroupTabClosed);
+					break;
+			}
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
+	}, [handleRefresh, handleNewTab, handleCloseTab, activeTabId, onGroupTabClosed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// ── IPC: altura real del chrome → Rust ajusta los bounds del content_view ─
+	const chromeHeaderRef = useRef<HTMLDivElement>(null);
+	const sendChromeHeight = () => {
+		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
+		if (!ipc || !chromeHeaderRef.current) return;
+		// requestAnimationFrame garantiza que el layout ya está calculado
+		requestAnimationFrame(() => {
+			if (!chromeHeaderRef.current) return;
+			const h = Math.ceil(chromeHeaderRef.current.getBoundingClientRect().height);
+			ipc.postMessage(JSON.stringify({ cmd: "chrome_height", height: h }));
+		});
+	};
+	useEffect(() => {
+		sendChromeHeight();
+	}, [settings.showBookmarksBar]); // re-enviar cuando cambia la barra de favoritos
+
+	// ── IPC: errores de navegación desde Rust ───────────────────────────────
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const { url, code } = (e as CustomEvent<{ url: string; code?: string }>).detail ?? {};
+			if (url) setNavError({ url, code: code as ErrorCode });
+		};
+		window.addEventListener("orion:navigate:error", handler);
+		return () => window.removeEventListener("orion:navigate:error", handler);
 	}, []);
 
-	// Simulación de niveles de audio
+	// Limpiar error al navegar a nueva URL
 	useEffect(() => {
-		if (voiceState === "listening") {
-			const interval = setInterval(() => {
-				setAudioLevels((prev) => prev.map(() => Math.random() * 100));
-			}, 100);
-			return () => clearInterval(interval);
-		}
-	}, [voiceState]);
+		setNavError(null);
+	}, [activeTab?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	const loadRecentSearches = () => {
-		const stored = localStorage.getItem("orion-recent-searches");
-		if (stored) {
-			try {
-				const parsed = JSON.parse(stored);
-				setRecentSearches(parsed.slice(0, 5)); // Máximo 5 búsquedas recientes
-			} catch (error) {
-				console.error("Error loading recent searches:", error);
-			}
-		}
-	};
+	// ── IPC: sincronizar tab activo con el content_view nativo ─────────────
+	// Cuando el tab activo cambia de URL, avisamos al WebView nativo (wry).
+	// http(s)://  → content_view carga la página directamente (sin proxy).
+	// orion://    → content_view vuelve a about:blank (React renderiza la página).
+	const lastSentUrlRef = useRef<string>("");
+	useEffect(() => {
+		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
+		if (!ipc || !activeTab) return;
 
-	const saveRecentSearch = (url: string) => {
-		// No guardar URLs internas de Orion
-		if (url.startsWith("orion://")) return;
+		const url = activeTab.url;
+		const nativeUrl =
+			url.startsWith("http://") || url.startsWith("https://")
+				? url
+				: "about:blank";
 
-		setRecentSearches((prev) => {
-			// Eliminar duplicados y agregar al inicio
-			const filtered = prev.filter((item) => item !== url);
-			const updated = [url, ...filtered].slice(0, 5); // Máximo 5
+		// Evitar reenviar la misma URL repetidamente
+		if (nativeUrl === lastSentUrlRef.current) return;
+		lastSentUrlRef.current = nativeUrl;
 
-			// Guardar en localStorage
-			localStorage.setItem("orion-recent-searches", JSON.stringify(updated));
+		ipc.postMessage(JSON.stringify({ cmd: "navigate", url: nativeUrl }));
+	}, [activeTabId, activeTab?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
-			return updated;
-		});
-	};
-
-	const clearRecentSearches = () => {
-		setRecentSearches([]);
-		localStorage.removeItem("orion-recent-searches");
-		toast({
-			title: "Búsquedas recientes eliminadas",
-			description: "Se han borrado todas las búsquedas recientes",
-		});
-	};
-
-	const loadTabs = async () => {
-		if (!authService.isAuthenticated()) {
-			// Si no está autenticado, crear tab por defecto
-			const defaultTab: Tab = {
-				id: "default",
-				title: "Bienvenido a Orion",
-				url: "orion://welcome",
-			};
-			setTabs([defaultTab]);
-			setActiveTabId("default");
-			setLoading(false);
-			return;
-		}
-
-		try {
-			setLoading(true);
-			const data = await tabService.getTabs();
-
-			if (data.length === 0) {
-				// Crear tab inicial
-				await handleNewTab();
-			} else {
-				setTabs(
-					data.map((tab) => ({
-						id: tab.id,
-						title: tab.title,
-						url: tab.url,
-						favicon: tab.favicon || undefined,
-					}))
-				);
-				setActiveTabId(data[0].id);
-			}
-		} catch (error) {
-			console.error("Error loading tabs:", error);
-			// Fallback a tab por defecto
-			const defaultTab: Tab = {
-				id: "default",
-				title: "Bienvenido a Orion",
-				url: "orion://welcome",
-			};
-			setTabs([defaultTab]);
-			setActiveTabId("default");
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const activeTab = tabs.find((tab) => tab.id === activeTabId);
-
-	const handleNewTab = async () => {
-		const tempId = `temp-${Date.now()}`;
-		const newTab: Tab = {
-			id: tempId,
-			title: "Nueva pestaña",
-			url: "orion://newtab",
+	// ── IPC: actualizar la barra de direcciones cuando el usuario clica un
+	// link dentro de una página cargada via el engine proxy (/render).
+	// Rust dispara 'orion:urlchange' con la URL real (sin el prefijo de proxy).
+	// Seteamos lastSentUrlRef antes de handleNavigate para evitar que el
+	// useEffect de IPC de arriba reenvíe un segundo comando 'navigate' duplicado.
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const url = (e as CustomEvent<{ url: string }>).detail?.url;
+			if (!url) return;
+			// Si la URL ya fue enviada por nosotros (navigate, back, forward),
+			// no agregar al historial — solo actualiza la barra de direcciones.
+			if (lastSentUrlRef.current === url) return;
+			// Nueva URL por click de link interno o redirect: marcar y agregar al historial.
+			lastSentUrlRef.current = url;
+			handleNavigate(url);
 		};
+		window.addEventListener("orion:urlchange", handler);
+		return () => window.removeEventListener("orion:urlchange", handler);
+	}, [handleNavigate]);
 
-		setTabs([...tabs, newTab]);
-		setActiveTabId(tempId);
+	// ── Transparencia: el body del HTML debe ser transparente cuando el
+	// content_view nativo muestra una página, para que se vea a través
+	// del chrome React (WebView con with_transparent=true en wry).
+	useEffect(() => {
+		const isExternal =
+			activeTab?.url.startsWith("http://") || activeTab?.url.startsWith("https://");
+		document.body.style.background = isExternal ? "transparent" : "";
+		document.documentElement.style.background = isExternal ? "transparent" : "";
+	}, [activeTab?.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
-		if (authService.isAuthenticated()) {
-			try {
-				const createdTab = await tabService.createTab({
-					url: "orion://newtab",
-					title: "Nueva pestaña",
-				});
-
-				// Reemplazar el tab temporal con el real
-				setTabs((prevTabs) =>
-					prevTabs.map((tab) =>
-						tab.id === tempId ? { ...tab, id: createdTab.id } : tab
-					)
-				);
-				setActiveTabId(createdTab.id);
-			} catch (error) {
-				console.error("Error creating tab:", error);
-			}
-		}
-
-		toast({
-			title: "Nueva pestaña creada",
-			description: "Escribe una URL o busca algo",
-		});
-	};
-
-	const handleCloseTab = async (id: string) => {
-		if (tabs.length === 1) {
-			await handleNewTab();
-			return;
-		}
-
-		const newTabs = tabs.filter((tab) => tab.id !== id);
-		setTabs(newTabs);
-
-		if (activeTabId === id) {
-			setActiveTabId(newTabs[0].id);
-		}
-
-		if (
-			authService.isAuthenticated() &&
-			!id.startsWith("temp-") &&
-			!id.startsWith("default")
-		) {
-			try {
-				await tabService.deleteTab(id);
-			} catch (error) {
-				console.error("Error deleting tab:", error);
-			}
-		}
-	};
-
-	const handleNavigate = async (url: string) => {
-		if (!activeTab) return;
-
-		// Normalizar la URL
-		let normalizedUrl = url.trim();
-
-		// Si no tiene protocolo y no es una URL especial de Orion
-		if (
-			!normalizedUrl.startsWith("http://") &&
-			!normalizedUrl.startsWith("https://") &&
-			!normalizedUrl.startsWith("orion://")
-		) {
-			// Si parece una búsqueda (tiene espacios o no tiene punto)
-			if (normalizedUrl.includes(" ") || !normalizedUrl.includes(".")) {
-				// Buscar en Google
-				normalizedUrl = `https://www.google.com/search?q=${encodeURIComponent(
-					normalizedUrl
-				)}`;
-			} else {
-				// Agregar https:// por defecto
-				normalizedUrl = `https://${normalizedUrl}`;
-			}
-		}
-
-		const pageTitle = normalizedUrl.includes("://")
-			? normalizedUrl.split("://")[1].split("/")[0]
-			: normalizedUrl;
-
-		const updatedTabs = tabs.map((tab) =>
-			tab.id === activeTabId
-				? { ...tab, url: normalizedUrl, title: pageTitle }
-				: tab
-		);
-		setTabs(updatedTabs);
-
-		// Guardar en búsquedas recientes
-		saveRecentSearch(normalizedUrl);
-
-		// Actualizar en backend
-		if (
-			authService.isAuthenticated() &&
-			!activeTabId.startsWith("temp-") &&
-			!activeTabId.startsWith("default")
-		) {
-			try {
-				await tabService.updateTab(activeTabId, {
-					url: normalizedUrl,
-					title: pageTitle,
-				});
-
-				// Agregar al historial
-				await historyService.addHistory({
-					url: normalizedUrl,
-					title: pageTitle,
-				});
-			} catch (error) {
-				console.error("Error updating tab:", error);
-			}
-		}
-
-		toast({
-			title: "Navegando",
-			description: `Cargando ${pageTitle}`,
-		});
-	};
-
-	const handleRefresh = () => {
-		toast({
-			title: "Actualizando",
-			description: "Recargando la página actual",
-		});
-	};
-
-	const shouldShowWebView = (url: string) => {
-		return url.startsWith("http://") || url.startsWith("https://");
-	};
-
-	const handleVoiceCommand = async () => {
-		if (voiceState === "idle") {
-			// Verificar soporte del navegador
-			if (!voiceService.isSupported()) {
-				toast({
-					title: "No soportado",
-					description: "Tu navegador no soporta reconocimiento de voz",
-					variant: "destructive",
-				});
-				return;
-			}
-
-			setVoiceState("listening");
-			setTranscription("Escuchando...");
-			setSuggestions([]);
-
-			voiceService.startListening(
-				async (finalTranscript) => {
-					// Resultado final
-					setTranscription(finalTranscript);
-					setVoiceState("processing");
-
-					try {
-						// Procesar con Gemini
-						const result = await processVoiceQuery(finalTranscript, {
-							currentUrl: activeTab?.url,
-							timestamp: new Date().toISOString(),
-						});
-
-						// Mostrar sugerencias
-						if (result.suggestions) {
-							setSuggestions(result.suggestions);
-						}
-
-						// Hablar la respuesta
-						voiceService.speak(result.response, () => {
-							setVoiceState("results");
-
-							// Ejecutar acción
-							if (result.action === "navigate" && result.url) {
-								handleNavigate(result.url);
-							} else if (result.action === "search" && result.query) {
-								handleNavigate(result.query);
-							}
-
-							// Volver a idle después de mostrar resultados
-							setTimeout(() => {
-								setVoiceState("idle");
-								setTranscription("");
-								setSuggestions([]);
-							}, 3000);
-						});
-					} catch (error) {
-						console.error("Error processing voice query:", error);
-						voiceService.speak(
-							"Lo siento, hubo un error procesando tu solicitud"
-						);
-						setVoiceState("idle");
-						setTranscription("");
-						toast({
-							title: "Error",
-							description: "No se pudo procesar tu solicitud",
-							variant: "destructive",
-						});
-					}
-				},
-				(error) => {
-					// Error de reconocimiento
-					console.error("Voice recognition error:", error);
-					setVoiceState("idle");
-					setTranscription("");
-					toast({
-						title: "Error",
-						description: "No se pudo activar el micrófono",
-						variant: "destructive",
-					});
-				},
-				(interimTranscript) => {
-					// Transcripción intermedia (opcional)
-					setTranscription(interimTranscript);
-				}
-			);
-		} else {
-			// Detener escucha
-			voiceService.stopListening();
-			voiceService.stopSpeaking();
-			setVoiceState("idle");
-			setTranscription("");
-			setSuggestions([]);
-		}
-	};
 
 	if (loading) {
 		return (
-			<div className="flex items-center justify-center h-screen">
-				<div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+			<div className="flex flex-col items-center justify-center h-screen bg-background gap-4">
+				<div className="relative">
+					<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-400 animate-pulse" />
+					<div className="absolute inset-0 w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-400 blur-lg opacity-40 animate-pulse" />
+				</div>
+				<div className="flex items-center gap-1.5">
+					{[0, 150, 300].map((delay) => (
+						<div
+							key={delay}
+							className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-bounce"
+							style={{ animationDelay: `${delay}ms` }}
+						/>
+					))}
+				</div>
+				<span className="text-xs text-slate-500">Cargando Flux...</span>
 			</div>
 		);
 	}
 
+	const showWebView =
+		activeTab?.url.startsWith("http://") || activeTab?.url.startsWith("https://");
+
 	return (
-		<div className="flex flex-col h-screen bg-background">
-			{/* Browser Chrome */}
-			<div className="bg-browser-chrome border-b border-border/50 backdrop-blur-xl">
-				{/* Title Bar con drag region */}
+		<div className={`flex flex-col h-screen overflow-hidden ${showWebView ? "bg-transparent" : "bg-background"}`}>
+			{/* ═══ Chrome Header ═══ */}
+			<div ref={chromeHeaderRef} className="bg-browser-chrome border-b border-border flex-shrink-0 pb-[3px]">
+				{/* Title bar + Tab strip */}
 				<div
-					className="h-8 flex items-center px-3 bg-background/50"
-					style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-					<div className="flex items-center gap-2 flex-1">
-						<div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-teal-400" />
-						<span className="text-xs font-semibold">Orion Voice Browser</span>
+					className="flex items-end px-2 pt-1 h-12 gap-0.5 bg-[hsl(var(--browser-chrome))] overflow-hidden"
+					style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+					onMouseDown={(e) => {
+						// Solo drag si se hace clic en el fondo, nunca sobre un boton o tab
+						if (e.button === 0 && !(e.target as HTMLElement).closest("button, a, input"))
+							(window as unknown as { ipc?: { postMessage: (m: string) => void } })
+								.ipc?.postMessage(JSON.stringify({ cmd: "drag_window" }));
+					}}>
+					<div
+						className="flex items-end gap-0.5 flex-1 overflow-x-hidden"
+						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+						{/* Tabs agrupadas */}
+						{tabGroups.map((group) => {
+							const groupTabs = tabs.filter((t) => t.groupId === group.id);
+							if (groupTabs.length === 0) return null;
+							return (
+								<div key={group.id} className="flex items-end gap-0.5">
+									<button
+										onClick={() => handleToggleGroupCollapse(group.id)}
+										className="flex items-center gap-1 px-2 py-1 mb-0.5 rounded-t-md text-[10px] font-bold transition-all"
+										style={{ backgroundColor: `${group.color}20`, color: group.color }}>
+										<span className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
+										{group.name}
+										<span className="text-[9px] opacity-60">
+											{group.collapsed ? `(${groupTabs.length})` : ""}
+										</span>
+									</button>
+									{!group.collapsed &&
+										groupTabs.map((tab) => (
+											<BrowserTab
+												key={tab.id}
+												{...tab}
+												isActive={tab.id === activeTabId}
+												onSelect={() => setActiveTabId(tab.id)}
+												onClose={() => handleCloseTab(tab.id, onGroupTabClosed)}
+												isLoading={loadingTabIds.has(tab.id)}
+											/>
+										))}
+								</div>
+							);
+						})}
+
+						{/* Tabs sin grupo */}
+						{tabs
+							.filter((t) => !t.groupId)
+							.map((tab) => (
+								<BrowserTab
+									key={tab.id}
+									{...tab}
+									isActive={tab.id === activeTabId}
+									onSelect={() => setActiveTabId(tab.id)}
+									onClose={() => handleCloseTab(tab.id, onGroupTabClosed)}
+									isLoading={loadingTabIds.has(tab.id)}
+								/>
+							))}
+
+						<button
+							onClick={handleNewTab}
+							className="flex-shrink-0 w-8 h-8 mb-0.5 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-hoverBg transition-all duration-200">
+							<Plus className="h-4 w-4" />
+						</button>
+
+						{workspaceMode !== "normal" && (
+							<button
+								onClick={() => setWorkspaceMode("normal")}
+								className="flex items-center gap-1 px-2 py-1 mb-0.5 rounded-md text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all">
+								✕ {workspaceMode === "split" ? "Split" : "Panel"}
+							</button>
+						)}
 					</div>
 
-					<div style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+					<div
+						className="flex items-end gap-0.5 flex-shrink-0 pb-1.5 pl-2"
+						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
 						<WindowControls />
 					</div>
 				</div>
 
-				{/* Tabs Bar */}
-				<div className="flex items-end gap-1 px-3 pt-2">
-					{tabs.map((tab) => (
-						<BrowserTab
-							key={tab.id}
-							{...tab}
-							isActive={tab.id === activeTabId}
-							onSelect={() => setActiveTabId(tab.id)}
-							onClose={() => handleCloseTab(tab.id)}
-						/>
-					))}
-					<Button
-						variant="ghost"
-						size="icon"
-						onClick={handleNewTab}
-						className="h-9 w-9 mb-1 hover:scale-110 transition-transform duration-200">
-						<Plus className="h-5 w-5" />
-					</Button>
-				</div>
-
-				{/* Navigation Bar - Siempre visible */}
-				<div className="flex items-center gap-4 px-5 py-4">
+				{/* Navigation + Address bar */}
+				<div className="flex items-center gap-3 px-3 py-2.5 bg-browser-chrome border-t border-border">
 					<NavigationControls
-						canGoBack={false}
-						canGoForward={false}
-						onBack={() => toast({ title: "Atrás" })}
-						onForward={() => toast({ title: "Adelante" })}
+						canGoBack={navigation.canGoBack}
+						canGoForward={navigation.canGoForward}
+						onBack={handleBack}
+						onForward={handleForward}
 						onHome={() => handleNavigate("orion://welcome")}
-						onMenu={() => toast({ title: "Menú", description: "Próximamente" })}
+						onMenu={() => setIsMenuOpen(!isMenuOpen)}
 					/>
 
-					{/* Barra de búsqueda siempre visible */}
-					<div className="flex-1">
+					<div className="flex-1 min-w-0">
 						<AddressBar
 							url={activeTab?.url || ""}
 							onNavigate={handleNavigate}
 							onRefresh={handleRefresh}
+							onStop={handleStop}
+							isLoading={isActiveTabLoading}
+							privacyMode={privacyMode}
+							onPrivacyModeChange={handlePrivacyModeChange}
+							readerMode={readerMode}
+							onReaderModeChange={handleReaderModeChange}
+						aiPanelOpen={aiPanelOpen}
+						onToggleAIPanel={() => setAiPanelOpen(v => !v)}
 						/>
 					</div>
 
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-1">
 						<FavoritesPanel onNavigate={handleNavigate} />
+						<DownloadsPanel onNavigate={handleNavigate} />
 						<ThemeSelector />
+						<button
+							onClick={() => setIsMenuOpen(!isMenuOpen)}
+							className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 border ${
+								isMenuOpen
+									? "bg-primary/15 text-primary border-primary/20"
+									: "text-muted-foreground hover:text-foreground hover:bg-hoverBg border-transparent hover:border-border"
+							}`}
+							title="Menú de Flux">
+							<Menu className="h-4 w-4" />
+						</button>
 					</div>
 				</div>
-			</div>
-
-			{/* Content Area */}
-			<div className="flex-1 bg-background overflow-hidden relative">
-				{activeTab && shouldShowWebView(activeTab.url) ? (
-					<WebView
-						url={activeTab.url}
-						onLoadStart={() => console.log("Loading...")}
-						onLoadStop={() => console.log("Loaded!")}
-						onTitleUpdate={(title) => {
-							setTabs(
-								tabs.map((tab) =>
-									tab.id === activeTabId ? { ...tab, title } : tab
-								)
-							);
-						}}
-						onFaviconUpdate={(favicon) => {
-							setTabs(
-								tabs.map((tab) =>
-									tab.id === activeTabId ? { ...tab, favicon } : tab
-								)
-							);
-						}}
-						className="w-full h-full"
-					/>
-				) : (
-					// Voice Interface con diseño mejorado y olas animadas
-					<div className="h-full relative overflow-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-						{/* Animated Ocean Waves Background - Multiple Layers */}
-						<div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
-							<div
-								className="absolute inset-0"
-								style={{
-									background:
-										"radial-gradient(ellipse at center, rgba(14,165,233,0.15) 0%, transparent 70%)",
-								}}
-							/>
-
-							{/* Multiple Wave Layers - Horizontal Movement */}
-							{[...Array(5)].map((_, i) => (
-								<div
-									key={i}
-									className="absolute w-[200%] h-32 opacity-30"
-									style={{
-										bottom: `${i * 15}%`,
-										left: "-50%",
-										background: `linear-gradient(90deg, transparent, rgba(6,182,212,${
-											0.3 - i * 0.05
-										}), transparent)`,
-										animation: `wave ${10 + i * 2}s ease-in-out infinite`,
-										animationDelay: `${i * 0.5}s`,
-										transform:
-											voiceState === "listening" ? "scale(1.3)" : "scale(1)",
-										transition: "transform 1s ease",
-									}}
-								/>
-							))}
-
-							{/* Top Wave Bar - Pulses with voice */}
-							<div
-								className="absolute w-full h-2"
-								style={{
-									top: "15%",
-									left: 0,
-									background:
-										"linear-gradient(90deg, transparent, rgba(6,182,212,0.8), transparent)",
-									boxShadow: "0 0 30px rgba(6,182,212,0.6)",
-									animation:
-										voiceState === "listening"
-											? "wavePulse 2s ease-in-out infinite"
-											: "none",
-								}}
-							/>
-						</div>
-
-						{/* Floating Particles - When listening */}
-						{voiceState === "listening" && (
-							<div className="absolute inset-0 pointer-events-none overflow-hidden">
-								{[...Array(30)].map((_, i) => (
-									<div
-										key={i}
-										className="absolute w-2 h-2 bg-cyan-400/50 rounded-full"
-										style={{
-											top: `${Math.random() * 100}%`,
-											left: `${Math.random() * 100}%`,
-											animation: `float ${
-												3 + Math.random() * 4
-											}s ease-in-out infinite`,
-											animationDelay: `${Math.random() * 2}s`,
-											filter: "blur(1px)",
-										}}
-									/>
-								))}
-							</div>
-						)}
-
-						<div className="relative max-w-7xl mx-auto py-8 px-8">
-							{/* Voice Button Central con Olas Circulares Animadas */}
-							<div className="flex justify-center mb-16 pt-8">
-								<div className="relative">
-									{/* Ripple Circles - Expanding Waves (Siri Effect) */}
-									{voiceState !== "idle" &&
-										[...Array(4)].map((_, i) => (
-											<div
-												key={i}
-												className="absolute inset-0 rounded-full"
-												style={{
-													border: "2px solid rgba(6,182,212,0.4)",
-													animation: `ripple ${2 + i * 0.5}s ease-out infinite`,
-													animationDelay: `${i * 0.3}s`,
-												}}
-											/>
-										))}
-
-									{/* Fluid Wave Lines - Around Button */}
-									{voiceState === "listening" && (
-										<>
-											{/* Top Wave */}
-											<div className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-8">
-												<svg viewBox="0 0 200 20" className="w-full h-full">
-													<path
-														d="M0,10 Q25,0 50,10 T100,10 T150,10 T200,10"
-														fill="none"
-														stroke="rgba(6,182,212,0.6)"
-														strokeWidth="3"
-														style={{
-															animation: "waveFlow 3s ease-in-out infinite",
-															filter:
-																"drop-shadow(0 0 8px rgba(6,182,212,0.8))",
-														}}
-													/>
-												</svg>
-											</div>
-
-											{/* Bottom Wave */}
-											<div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-64 h-8">
-												<svg viewBox="0 0 200 20" className="w-full h-full">
-													<path
-														d="M0,10 Q25,20 50,10 T100,10 T150,10 T200,10"
-														fill="none"
-														stroke="rgba(6,182,212,0.6)"
-														strokeWidth="3"
-														style={{
-															animation:
-																"waveFlow 3s ease-in-out infinite reverse",
-															filter:
-																"drop-shadow(0 0 8px rgba(6,182,212,0.8))",
-														}}
-													/>
-												</svg>
-											</div>
-
-											{/* Left Wave */}
-											<div className="absolute -left-20 top-1/2 -translate-y-1/2 w-8 h-64">
-												<svg viewBox="0 0 20 200" className="w-full h-full">
-													<path
-														d="M10,0 Q0,25 10,50 T10,100 T10,150 T10,200"
-														fill="none"
-														stroke="rgba(6,182,212,0.6)"
-														strokeWidth="3"
-														style={{
-															animation: "waveFlow 3s ease-in-out infinite",
-															animationDelay: "0.5s",
-															filter:
-																"drop-shadow(0 0 8px rgba(6,182,212,0.8))",
-														}}
-													/>
-												</svg>
-											</div>
-
-											{/* Right Wave */}
-											<div className="absolute -right-20 top-1/2 -translate-y-1/2 w-8 h-64">
-												<svg viewBox="0 0 20 200" className="w-full h-full">
-													<path
-														d="M10,0 Q20,25 10,50 T10,100 T10,150 T10,200"
-														fill="none"
-														stroke="rgba(6,182,212,0.6)"
-														strokeWidth="3"
-														style={{
-															animation:
-																"waveFlow 3s ease-in-out infinite reverse",
-															animationDelay: "0.5s",
-															filter:
-																"drop-shadow(0 0 8px rgba(6,182,212,0.8))",
-														}}
-													/>
-												</svg>
-											</div>
-										</>
-									)}
-
-									{/* Pulsing Glow Effect */}
-									{voiceState === "listening" && (
-										<div
-											className="absolute inset-0 rounded-full"
-											style={{
-												background:
-													"radial-gradient(circle, rgba(6,182,212,0.4) 0%, transparent 70%)",
-												animation: "glow 2s ease-in-out infinite",
-												filter: "blur(20px)",
+			{/* Bookmarks bar */}
+				{settings.showBookmarksBar && (
+					<div className="flex items-center gap-0.5 px-3 py-1 bg-browser-chrome border-t border-border overflow-x-auto scrollbar-none">
+						{(() => {
+							const BAR_COLORS = [
+								"bg-cyan-500/15 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500/25",
+								"bg-violet-500/15 text-violet-300 border border-violet-500/20 hover:bg-violet-500/25",
+								"bg-amber-500/15 text-amber-300 border border-amber-500/20 hover:bg-amber-500/25",
+								"bg-rose-500/15 text-rose-300 border border-rose-500/20 hover:bg-rose-500/25",
+								"bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/25",
+								"bg-blue-500/15 text-blue-300 border border-blue-500/20 hover:bg-blue-500/25",
+							];
+							return favorites.length === 0 ? null : favorites.map((fav, i) => (
+								<button
+									key={fav.id}
+									onClick={() => handleNavigate(fav.url)}
+									className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors max-w-[140px] ${BAR_COLORS[i % BAR_COLORS.length]}`}
+									title={fav.url}>
+									{fav.icon ? (
+										<img
+											src={fav.icon}
+											className="w-3.5 h-3.5 flex-shrink-0"
+											alt=""
+											onError={(e) => {
+												(e.target as HTMLImageElement).style.display = "none";
 											}}
 										/>
+									) : (
+										<Globe className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
 									)}
-
-									{/* Main Voice Button */}
-									<button
-										onClick={handleVoiceCommand}
-										className={`relative w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 z-10 ${
-											voiceState === "listening"
-												? "bg-gradient-to-br from-cyan-500 to-teal-400 scale-110 shadow-2xl shadow-cyan-500/50"
-												: voiceState === "processing"
-												? "bg-gradient-to-br from-purple-500 to-pink-400 scale-105 shadow-xl shadow-purple-500/50"
-												: "bg-slate-800/80 hover:bg-slate-700/80 hover:scale-105"
-										}`}
-										style={{
-											boxShadow:
-												voiceState === "listening"
-													? "0 0 60px rgba(6,182,212,0.6), inset 0 0 20px rgba(255,255,255,0.2)"
-													: undefined,
-										}}>
-										<div className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-sm" />
-										{voiceState === "listening" ? (
-											<MicOff className="w-12 h-12 text-white animate-pulse relative z-10" />
-										) : voiceState === "processing" ? (
-											<div className="relative z-10 w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-										) : (
-											<Mic className="w-12 h-12 text-slate-300 relative z-10" />
-										)}
-									</button>
-
-									{/* Audio Visualization Bars */}
-									{voiceState === "listening" && (
-										<div className="absolute -bottom-32 left-1/2 -translate-x-1/2 flex items-end justify-center gap-1 h-24 w-80">
-											{audioLevels.map((level, i) => (
-												<div
-													key={i}
-													className="w-1.5 bg-gradient-to-t from-cyan-500 to-teal-400 rounded-full transition-all duration-100"
-													style={{
-														height: `${Math.max(8, level)}%`,
-														opacity: 0.7 + level / 200,
-														boxShadow: "0 0 8px rgba(6,182,212,0.6)",
-													}}
-												/>
-											))}
-										</div>
-									)}
-								</div>
-							</div>
-
-							{/* Status Text con sugerencias de Gemini */}
-							<div className="text-center mb-12">
-								<p
-									className={`text-2xl font-semibold transition-all duration-300 mb-2 ${
-										voiceState === "listening"
-											? "text-cyan-400 animate-pulse"
-											: voiceState === "processing"
-											? "text-purple-400"
-											: "text-slate-400"
-									}`}>
-									{voiceState === "idle" && "Toca el micrófono para hablar"}
-									{voiceState === "listening" && "Escuchando..."}
-									{voiceState === "processing" && "Procesando tu solicitud..."}
-									{voiceState === "results" && "✓ Listo"}
-								</p>
-
-								{transcription && voiceState !== "idle" && (
-									<p className="text-lg text-cyan-300/80 max-w-md mx-auto animate-in fade-in mb-4">
-										"{transcription}"
-									</p>
-								)}
-
-								{/* Sugerencias de Gemini */}
-								{suggestions.length > 0 && voiceState === "results" && (
-									<div className="max-w-2xl mx-auto mt-6 animate-in fade-in">
-										<p className="text-sm text-slate-400 mb-3">
-											También podrías probar:
-										</p>
-										<div className="flex flex-wrap gap-2 justify-center">
-											{suggestions.map((suggestion, i) => (
-												<button
-													key={i}
-													onClick={() => handleNavigate(suggestion)}
-													className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-cyan-500/50 rounded-full text-sm text-slate-300 hover:text-cyan-400 transition-all duration-300">
-													{suggestion}
-												</button>
-											))}
-										</div>
-									</div>
-								)}
-							</div>
-
-							{/* Búsquedas Recientes Section - Estilo de la imagen */}
-							<div className="mb-12">
-								<div className="flex items-center gap-3 mb-6">
-									<div className="w-1 h-6 bg-cyan-500" />
-									<h2 className="text-xl font-semibold text-slate-200">
-										Búsquedas recientes
-									</h2>
-								</div>
-
-								<div className="space-y-3">
-									{[
-										{ query: "¿Cómo está el clima hoy?", time: "Hace 10 min" },
-										{ query: "Noticias de tecnología", time: "Hace 30 min" },
-										{ query: "Resultados deportivos", time: "Hace 1 hora" },
-										{ query: "Recetas saludables", time: "Hace 2 horas" },
-									].map((item, i) => (
-										<div
-											key={i}
-											onClick={() => handleNavigate(item.query)}
-											className="group flex items-center gap-4 p-4 rounded-xl bg-slate-900/40 border border-slate-800/50 hover:border-cyan-500/50 hover:bg-slate-800/60 cursor-pointer transition-all duration-300">
-											<Search className="h-5 w-5 text-slate-500 group-hover:text-cyan-400 transition-colors" />
-											<div className="flex-1">
-												<p className="text-slate-200 group-hover:text-cyan-400 transition-colors">
-													{item.query}
-												</p>
-												<p className="text-sm text-slate-500">{item.time}</p>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-
-							{/* Noticias para ti Section - Estilo de la imagen */}
-							<div>
-								<div className="flex items-center gap-3 mb-6">
-									<div className="w-1 h-6 bg-cyan-500" />
-									<h2 className="text-xl font-semibold text-slate-200">
-										Noticias para ti
-									</h2>
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-									{NEWS_HIGHLIGHTS.map((news, i) => (
-										<div
-											key={i}
-											className="group relative overflow-hidden rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:border-cyan-500/50 shadow-lg hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-300 cursor-pointer">
-											{/* Image placeholder */}
-											<div className="aspect-video overflow-hidden bg-gradient-to-br from-cyan-900/20 to-teal-900/20">
-												<div className="w-full h-full bg-gradient-to-br from-cyan-500/5 to-teal-500/5" />
-												<div className="absolute inset-0 flex items-center justify-center">
-													<div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center backdrop-blur-sm">
-														<Globe className="h-8 w-8 text-cyan-400" />
-													</div>
-												</div>
-											</div>
-
-											<div className="p-5">
-												<p className="text-xs text-cyan-400 mb-2 flex items-center gap-2">
-													<span className="w-2 h-2 rounded-full bg-cyan-400" />
-													Desliza hacia arriba para más contenido
-												</p>
-												<h3 className="font-semibold mb-3 text-lg text-slate-200 group-hover:text-cyan-400 transition-colors line-clamp-2">
-													{news.title}
-												</h3>
-												<div className="flex items-center gap-2 text-sm text-slate-400">
-													<span>{news.source}</span>
-													<span>•</span>
-													<span>{news.time}</span>
-												</div>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-
-							{/* Quick Access Icons - Agregados para más funcionalidad */}
-							<div className="mt-12">
-								<div className="grid grid-cols-4 md:grid-cols-8 gap-4">
-									{QUICK_ACCESS.map((item, i) => (
-										<div
-											key={i}
-											onClick={() => handleNavigate(`https://${item.url}`)}
-											className="group cursor-pointer">
-											<div className="flex flex-col items-center gap-2">
-												<div className="w-14 h-14 bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800/50 shadow-sm flex items-center justify-center group-hover:scale-110 group-hover:border-cyan-500/50 group-hover:shadow-lg group-hover:shadow-cyan-500/20 transition-all duration-300">
-													<item.icon className="h-6 w-6 text-slate-400 group-hover:text-cyan-400" />
-												</div>
-												<span className="text-xs text-slate-400 group-hover:text-cyan-400 transition-colors">
-													{item.title}
-												</span>
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-						</div>
-
-						{/* Enhanced CSS Animations */}
-						<style>{`
-              @keyframes wave {
-                0%, 100% {
-                  transform: translateX(0) translateY(0);
-                }
-                50% {
-                  transform: translateX(25%) translateY(-15px);
-                }
-              }
-              
-              @keyframes wavePulse {
-                0%, 100% {
-                  opacity: 0.5;
-                  transform: scaleY(1) scaleX(1);
-                }
-                50% {
-                  opacity: 1;
-                  transform: scaleY(2) scaleX(1.1);
-                }
-              }
-              
-              @keyframes ripple {
-                0% {
-                  transform: scale(1);
-                  opacity: 0.8;
-                }
-                100% {
-                  transform: scale(2.5);
-                  opacity: 0;
-                }
-              }
-              
-              @keyframes waveFlow {
-                0%, 100% {
-                  d: path("M0,10 Q25,0 50,10 T100,10 T150,10 T200,10");
-                }
-                50% {
-                  d: path("M0,10 Q25,20 50,10 T100,10 T150,10 T200,10");
-                }
-              }
-              
-              @keyframes glow {
-                0%, 100% {
-                  opacity: 0.5;
-                  transform: scale(1);
-                }
-                50% {
-                  opacity: 0.8;
-                  transform: scale(1.2);
-                }
-              }
-              
-              @keyframes float {
-                0%, 100% {
-                  transform: translateY(0) translateX(0);
-                  opacity: 0;
-                }
-                10% {
-                  opacity: 1;
-                }
-                90% {
-                  opacity: 1;
-                }
-                100% {
-                  transform: translateY(-100px) translateX(20px);
-                  opacity: 0;
-                }
-              }
-              
-              .animate-in {
-                animation: fadeIn 0.5s ease-out forwards;
-              }
-              
-              @keyframes fadeIn {
-                from {
-                  opacity: 0;
-                  transform: translateY(10px);
-                }
-                to {
-                  opacity: 1;
-                  transform: translateY(0);
-                }
-              }
-            `}</style>
+									<span className="truncate">{fav.title || fav.url}</span>
+								</button>
+							));
+						})()}
 					</div>
 				)}
 			</div>
+
+			{/* ═══ Content ═══ */}
+			{/* bg-transparent cuando hay una página http(s):// activa:
+			    el content_view nativo de wry se ve a través del chrome React.
+			    Para páginas orion:// React renderiza con su propio fondo. */}
+			{/* pointer-events-none cuando hay página nativa: los clicks pasan al content_view */}
+			<div className={`flex-1 overflow-hidden relative flex flex-row ${showWebView ? "bg-transparent pointer-events-none" : "bg-background"}`}>
+				<div className="absolute inset-0 pointer-events-none overflow-hidden">
+					<div className="orion-bg-blob orion-bg-blob-1" />
+					<div className="orion-bg-blob orion-bg-blob-2" />
+					<div className="orion-bg-blob orion-bg-blob-3" />
+				</div>
+
+				<div
+					className={`relative z-10 flex-1 h-full flex ${
+						workspaceMode !== "normal" ? "flex-row" : ""
+					}`}>
+					{/* Panel principal */}
+					<div
+						className={`h-full overflow-hidden relative ${
+							workspaceMode === "split" ? "w-1/2" : workspaceMode === "sidebar" ? "flex-1" : "w-full"
+						}`}>
+						{isBlocked ? (
+							<FocusBlockedPage
+								domain={blockedDomain || ""}
+								timeRemaining={focusTimeRemaining}
+								onGoBack={() => handleNavigate("orion://newtab")}
+							/>
+						) : (
+							<>
+								{/* Las páginas http(s):// se renderizan en el content_view
+								   nativo de wry (WebView2/WebKit) vía IPC — sin iframe, sin proxy.
+								   El useEffect de arriba sincroniza el tab activo con content_view. */}
+
+																{/* Página de error cuando Rust reporta fallo de navegación */}
+								{navError && showWebView && (
+									<div className="absolute inset-0 z-20 pointer-events-auto">
+										<ErrorPage
+											url={navError.url}
+											code={navError.code}
+											onRetry={() => { setNavError(null); handleRefresh(); }}
+											onBack={() => { setNavError(null); handleBack(); }}
+										/>
+									</div>
+								)}
+
+								{/* Reader Mode — superpone al webview */}
+								{readerMode && showWebView && activeTab && (
+									<div className="absolute inset-0 z-10">
+										<ReaderModePage
+											url={activeTab.url}
+											onExit={() => setReaderMode(false)}
+										/>
+									</div>
+								)}
+
+								{activeTab?.url === "orion://view-source" && viewSourceHtml && (
+									<div className="absolute inset-0">
+										<ViewSourcePage html={viewSourceHtml} url={viewSourceUrl} />
+									</div>
+								)}
+
+								{activeTab?.url.startsWith("orion://search") && (
+							<div className="absolute inset-0">
+								<SearchPage
+									query={
+										new URLSearchParams(activeTab.url.split("?")[1] ?? "").get("q") ?? ""
+									}
+									onNavigate={handleNavigate}
+								/>
+							</div>
+						)}
+
+							{activeTab?.url.startsWith("orion://ai") && (
+									<div className="absolute inset-0">
+										<OrionAIPage
+											query={
+												new URLSearchParams(activeTab.url.split("?")[1] ?? "").get("q") ?? ""
+											}
+											onNavigate={handleNavigate}
+										/>
+									</div>
+								)}
+
+								{(activeTab?.url.startsWith("orion://settings") || activeTab?.url === "orion://about") && (
+									<div className="absolute inset-0">
+										<SettingsPage url={activeTab.url} onNavigate={handleNavigate} />
+									</div>
+								)}
+
+								{activeTab?.url === "orion://history" && (
+									<div className="absolute inset-0">
+										<HistoryPage onNavigate={handleNavigate} />
+									</div>
+								)}
+
+								{activeTab?.url === "orion://bookmarks" && (
+									<div className="absolute inset-0">
+										<BookmarksPage onNavigate={handleNavigate} />
+									</div>
+								)}
+
+								{activeTab?.url === "orion://downloads" && (
+									<div className="absolute inset-0">
+										<DownloadsPage onNavigate={handleNavigate} />
+									</div>
+								)}
+
+								{!showWebView &&
+									activeTab?.url !== "orion://view-source" &&
+									!activeTab?.url.startsWith("orion://ai") &&
+								!activeTab?.url.startsWith("orion://search") &&
+									!activeTab?.url.startsWith("orion://settings") &&
+									activeTab?.url !== "orion://about" &&
+								activeTab?.url !== "orion://history" &&
+								activeTab?.url !== "orion://bookmarks" &&
+								activeTab?.url !== "orion://downloads" && (
+										<div className="absolute inset-0">
+											<NewTabPage
+												voiceState={voiceState}
+												transcription={transcription}
+												audioLevels={audioLevels}
+												suggestions={suggestions}
+												quickAccess={QUICK_ACCESS}
+												recentSearches={recentSearches}
+												tabsCount={tabs.length}
+												onVoiceCommand={handleVoiceCommand}
+												onNavigate={handleNavigate}
+											/>
+										</div>
+									)}
+							</>
+						)}
+					</div>
+
+					{/* Panel secundario (split / sidebar) */}
+					{workspaceMode !== "normal" && (
+						<>
+							<div
+								className={`flex-shrink-0 ${
+									workspaceMode === "split"
+										? "w-[3px] bg-primary/20 hover:bg-primary/40 cursor-col-resize"
+										: "w-[1px] bg-border"
+								}`}
+							/>
+							<div
+								className={`h-full overflow-hidden flex flex-col ${
+									workspaceMode === "split" ? "w-1/2" : "w-[320px] flex-shrink-0"
+								}`}>
+								<div className="flex items-center gap-2 px-2 py-1.5 bg-browser-chrome border-b border-border">
+									<input
+										type="text"
+										defaultValue={secondaryUrl}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												const raw = (e.target as HTMLInputElement).value.trim();
+												const normalized =
+													raw.startsWith("http://") || raw.startsWith("https://")
+														? raw
+														: raw.includes(".") && !raw.includes(" ")
+														? `https://${raw}`
+														: `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
+												setSecondaryUrl(normalized);
+											}
+										}}
+										className="flex-1 text-xs bg-hoverBg border border-border rounded-md px-2 py-1 text-foreground placeholder-muted-foreground outline-none focus:border-primary/30"
+										placeholder="URL del panel..."
+									/>
+									<button
+										onClick={() => setWorkspaceMode("normal")}
+										className="text-slate-600 hover:text-slate-300 text-xs px-1">
+										✕
+									</button>
+								</div>
+								<div className="flex-1">
+									<WebView url={secondaryUrl} className="w-full h-full" />
+								</div>
+							</div>
+						</>
+					)}
+				</div>
+
+			{/* ═══ Flux AI Side Panel ═══ */}
+			<OrionAISidePanel
+				open={aiPanelOpen}
+				onClose={() => setAiPanelOpen(false)}
+				currentUrl={activeTab?.url || ""}
+				currentTitle={activeTab?.title}
+			/>
+			</div>
+
+			{/* ═══ Browser Menu (overlay) ═══ */}
+			<BrowserMenu
+				isOpen={isMenuOpen}
+				onClose={() => setIsMenuOpen(false)}
+				onNavigate={(url) => {
+					handleNavigate(url);
+					setIsMenuOpen(false);
+				}}
+				onNewTab={() => { handleNewTab(); setIsMenuOpen(false); }}
+				currentUrl={activeTab?.url || ""}
+				currentTitle={activeTab?.title}
+				currentZoom={currentZoom}
+				onZoomChange={handleZoomChange}
+				onViewSource={(html, url) => {
+					setViewSourceHtml(html);
+					setViewSourceUrl(url);
+				}}
+				onFocusChange={(active, sites, timeRemaining) => {
+					setFocusActive(active);
+					setFocusBlockedSites(sites);
+					setFocusTimeRemaining(timeRemaining);
+				}}
+				onSplitView={() => { handleSplitView(); setIsMenuOpen(false); }}
+				onSidePanel={() => { handleSidePanel(); setIsMenuOpen(false); }}
+				onTabGroups={() => {}}
+				workspaceMode={workspaceMode}
+				tabGroups={tabGroups}
+				tabs={tabs}
+				activeTabId={activeTabId}
+				onCreateTabGroup={handleCreateTabGroup}
+				onAddTabToGroup={handleAddTabToGroup}
+				onRemoveTabFromGroup={handleRemoveTabFromGroup}
+				onDeleteGroup={handleDeleteGroup}
+				onSelectTab={(tabId: string) => {
+					setActiveTabId(tabId);
+					setIsMenuOpen(false);
+				}}
+				onReopenGroupTab={(groupId, index) => {
+					handleReopenGroupTab(groupId, index);
+					setIsMenuOpen(false);
+				}}
+				onRemoveSavedTab={handleRemoveSavedTab}
+			/>
 		</div>
 	);
 };

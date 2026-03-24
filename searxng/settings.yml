@@ -1,0 +1,18 @@
+use_default_settings: true
+
+server:
+  secret_key: "orion-secret-key"
+  limiter: false
+  image_proxy: true
+
+search:
+  safe_search: 0
+  autocomplete: "google"
+  default_lang: "es"
+  formats:
+    - html
+    - json
+
+ui:
+  default_theme: simple
+  query_in_title: true

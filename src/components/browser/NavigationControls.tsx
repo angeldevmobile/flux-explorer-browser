@@ -1,5 +1,4 @@
 import { ChevronLeft, ChevronRight, Home, Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface NavigationControlsProps {
   canGoBack: boolean;
@@ -16,49 +15,41 @@ export const NavigationControls = ({
   onBack,
   onForward,
   onHome,
-  onMenu
+  onMenu,
 }: NavigationControlsProps) => {
+  const btnBase =
+    "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200";
+  const btnEnabled =
+    "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] active:scale-95";
+  const btnDisabled = "text-slate-700 cursor-not-allowed";
+
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
+    <div className="flex items-center gap-0.5">
+      <button
         onClick={onBack}
         disabled={!canGoBack}
-        className="h-10 w-10 transition-all duration-200 hover:scale-110 disabled:opacity-30"
+        className={`${btnBase} ${canGoBack ? btnEnabled : btnDisabled}`}
       >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
-      
-      <Button
-        variant="ghost"
-        size="icon"
+        <ChevronLeft className="h-[18px] w-[18px]" />
+      </button>
+
+      <button
         onClick={onForward}
         disabled={!canGoForward}
-        className="h-10 w-10 transition-all duration-200 hover:scale-110 disabled:opacity-30"
+        className={`${btnBase} ${canGoForward ? btnEnabled : btnDisabled}`}
       >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
-      
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onHome}
-        className="h-10 w-10 transition-all duration-200 hover:scale-110"
-      >
-        <Home className="h-5 w-5" />
-      </Button>
-      
-      <div className="w-px h-6 bg-border mx-1" />
-      
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onMenu}
-        className="h-10 w-10 transition-all duration-200 hover:scale-110"
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
+        <ChevronRight className="h-[18px] w-[18px]" />
+      </button>
+
+      <button onClick={onHome} className={`${btnBase} ${btnEnabled}`}>
+        <Home className="h-4 w-4" />
+      </button>
+
+      <div className="w-px h-5 bg-white/[0.06] mx-1" />
+
+      <button onClick={onMenu} className={`${btnBase} ${btnEnabled}`}>
+        <Menu className="h-4 w-4" />
+      </button>
     </div>
   );
 };
