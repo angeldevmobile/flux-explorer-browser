@@ -82,11 +82,7 @@ export function MediaDownloaderModal({ open, onClose, currentUrl }: MediaDownloa
       const detail = (e as CustomEvent).detail;
       if (detail?.id?.startsWith("ytdl-") && detail.state === "interrupted") {
         setDownloading(false);
-        if (detail.filename?.includes("yt-dlp")) {
-          setError("yt-dlp no está instalado. Instálalo con: winget install yt-dlp o pip install yt-dlp");
-        } else {
-          setError(`Error al descargar: ${detail.filename}`);
-        }
+        setError(`Error al descargar: ${detail.filename || 'archivo desconocido'}`);
         window.removeEventListener("orion:download:done", onDone);
       }
     };
@@ -222,19 +218,6 @@ export function MediaDownloaderModal({ open, onClose, currentUrl }: MediaDownloa
             </div>
           </div>
 
-          {/* Requisito yt-dlp */}
-          <div className="flex items-start gap-2.5 px-3.5 py-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
-            <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[11px] font-medium text-amber-300">Requiere yt-dlp instalado</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Instala con:{" "}
-                <code className="font-mono bg-white/8 px-1 py-0.5 rounded text-amber-300">winget install yt-dlp</code>
-                {" "}o{" "}
-                <code className="font-mono bg-white/8 px-1 py-0.5 rounded text-amber-300">pip install yt-dlp</code>
-              </p>
-            </div>
-          </div>
 
           {/* Error */}
           {error && (

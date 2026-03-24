@@ -3,9 +3,9 @@ import prisma from "./prisma";
 export async function connectDatabase(): Promise<void> {
   try {
     await prisma.$connect();
-    console.log("Base de datos PostgreSQL conectada exitosamente");
+    console.log("Base de datos SQLite conectada exitosamente");
   } catch (error) {
-    console.error("Error al conectar con PostgreSQL:", error);
+    console.error("Error al conectar con SQLite:", error);
     process.exit(1);
   }
 }

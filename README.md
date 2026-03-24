@@ -8,9 +8,9 @@
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0--beta.2-cyan)](https://github.com)
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.3-cyan)](https://github.com)
 
-[Arquitectura](#arquitectura) · [Motor Rust](#flux-engine) · [Búsqueda](#flux-search) · [Backend](#flux-backend) · [Beta](#beta--primeros-pasos) · [Roadmap](#roadmap)
+[Arquitectura](#arquitectura) · [Motor Rust](#flux-engine) · [Búsqueda](#flux-search) · [Backend](#flux-backend) · [Instalación](#instalación-beta-pública) · [Roadmap](#roadmap)
 
 </div>
 
@@ -81,15 +81,16 @@ El 70% de las vulnerabilidades de Chrome y Firefox son errores de memoria en C++
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │              flux-backend  (Node.js) :3000              │   │
-│  │    Historia · Tabs · Bookmarks · Auth · Gemini IA        │   │
+│  │         flux-backend.exe  (sidecar, auto) :3000          │   │
+│  │    Historia · Tabs · Bookmarks · Auth · Gemini IA         │   │
 │  └─────────────────────────┬────────────────────────────────┘   │
 │                            ▼                                    │
-│                       PostgreSQL                                │
+│                    SQLite  (flux.db local)                      │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │              SearXNG  (Docker) :8080                     │   │
+│  │              SearXNG  (opcional, Docker) :8080           │   │
 │  │      DuckDuckGo · Brave Search · Wikipedia · más         │   │
+│  │         (si no está disponible, usa DuckDuckGo)          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -141,7 +142,7 @@ URL
 | 4 | OrionSoftRenderer — pixel buffer real con fontdue | ✅ |
 | 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | ✅ |
 | 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | ✅ |
-| 7 | Descargador de medios — integración yt-dlp con progreso en tiempo real | ✅ |
+| 7 | Descargador de medios — yt-dlp bundleado con progreso en tiempo real | ✅ |
 | 8 | Mute por pestaña — control de audio vía IPC | ✅ |
 
 ### JavaScript (Fase 5)
@@ -201,11 +202,14 @@ Motor JS ligero basado en **rquickjs** (QuickJS embebido en Rust, ~10 MB vs ~100
 ```
 flux-engine/
 ├── Cargo.toml
+├── build.rs            ← copia yt-dlp.exe y flux-backend.exe al compilar
+├── bin/
+│   └── yt-dlp.exe      ← descargado con scripts/download-yt-dlp.ps1
 └── src/
     ├── lib.rs              ← run_pipeline() / run_pipeline_with_security()
     ├── main.rs             ← entry point + servidor Axum :4000
     ├── bin/
-    │   ├── browser.rs      ← ventana nativa (tao + wry)
+    │   ├── browser.rs      ← ventana nativa (tao + wry) + sidecar backend
     │   └── render.rs       ← demo del renderer de píxeles
     ├── api/                ← endpoints HTTP (POST /process, GET /health)
     ├── fetcher/            ← reqwest HTTP client + SecurityLayer
@@ -237,7 +241,7 @@ flux-engine/
 ```bash
 cd flux-engine
 
-# Tests del pipeline completo (23 tests)
+# Tests del pipeline completo
 cargo test
 
 # Demo en consola (display list)
@@ -246,7 +250,7 @@ cargo run
 # Renderer de píxeles — abre ventana con softbuffer
 cargo run --bin flux-render
 
-# Navegador completo (requiere UI en :8082)
+# Navegador completo
 cargo run --bin flux-browser
 ```
 
@@ -262,8 +266,8 @@ Motor de búsqueda propio integrado en el browser.
 Usuario escribe en barra → flux://search?q=...
         ↓
 flux-backend (:3000)
-  · Consulta SearXNG self-hosted (:8080)
-  · SearXNG agrega: DuckDuckGo · Brave Search · Wikipedia · más
+  · Consulta SearXNG self-hosted (:8080) si está disponible
+  · Fallback automático a DuckDuckGo si SearXNG no está activo
         ↓
 flux-engine (:4000)  POST /process
   · fetch_and_extract() — descarga y parsea cada URL
@@ -289,24 +293,26 @@ SearchPage (React)
 | `GET /api/search/web?q=` | Búsqueda web via SearXNG + re-ranking Rust |
 | `GET /api/search?q=` | Búsqueda en historial y favoritos del usuario |
 | `GET /api/suggestions?q=` | Autocompletado en barra de direcciones |
-| `GET /api/news` | Noticias en tiempo real vía RSS (BBC, TechCrunch, NASA, Al Jazeera) — sin API key |
-| `GET /api/weather?city=` | Clima actual vía wttr.in — detecta ubicación por IP si no se especifica ciudad |
-| `GET /api/trends` | Tendencias de Google Trends (US) vía RSS — sin API key |
+| `POST /api/translation/translate` | Traducción de texto (Gemini + fallback MyMemory) |
+| `POST /api/translation/detect` | Detección de idioma |
+| `GET /api/news` | Noticias en tiempo real vía RSS (BBC, TechCrunch, NASA, Al Jazeera) |
+| `GET /api/weather?city=` | Clima actual vía wttr.in |
+| `GET /api/trends` | Tendencias de Google Trends vía RSS |
 
 ---
 
 ## flux-backend
 
-Backend Node.js + Express que gestiona los datos de usuario del browser.
+Backend Node.js + Express que gestiona los datos de usuario del browser. **Se distribuye como ejecutable standalone** — el usuario final no necesita Node.js instalado.
 
 ### Stack
 
-- **Runtime:** Node.js + TypeScript
+- **Runtime:** Node.js + TypeScript (compilado a exe standalone con `@yao-pkg/pkg`)
 - **Framework:** Express 5
 - **ORM:** Prisma
-- **Base de datos:** PostgreSQL
+- **Base de datos:** SQLite (archivo local `flux.db`, sin servidor)
 - **Auth:** JWT + bcrypt
-- **IA:** Google Gemini
+- **IA:** Google Gemini (chat, traducción, detección de canciones, OCR)
 - **Voz:** Google Cloud Text-to-Speech
 - **Seguridad:** Helmet + express-rate-limit
 
@@ -361,88 +367,78 @@ Chrome del navegador construido en React + Tailwind. Rodea el contenido con la i
 |---|---|
 | `OrionAISidePanel` | Panel lateral flotante de IA — chat Gemini contextual con URL y título de página actual, renderizado Markdown, animación de escritura |
 | `NewTabPage` | Nueva pestaña con widget de clima (wttr.in), feed de noticias RSS, tendencias de Google y búsqueda por voz |
-| `MediaDownloaderModal` | Descargador de medios con yt-dlp — progreso en tiempo real (%, velocidad, bytes) |
+| `MediaDownloaderModal` | Descargador de medios con yt-dlp bundleado — progreso en tiempo real (%, velocidad, bytes) |
 | `FavoritesPanel` | Panel de favoritos/bookmarks integrado |
 | `DevToolsSection` | Sección de herramientas de desarrollador en el menú |
 
 ---
 
-## Beta — Primeros Pasos
+## Instalación (beta pública)
 
-### Estado actual de la beta (v1.0.0-beta.2)
+### El usuario solo instala el navegador — sin dependencias externas
 
-**Funciona hoy:**
-- Navegación web completa via WebView2 (Windows) / WebKit (macOS/Linux)
-- Búsqueda propia con re-ranking BM25 en Rust
-- HTTPS upgrade automático + bloqueo de trackers en todas las requests
-- Chrome React completo: tabs, grupos de tabs, bookmarks, historial
-- Split view / Side panel
-- Focus Mode con bloqueo de sitios
-- Reader Mode
-- Flux AI (Gemini) — página completa + panel lateral flotante contextual
-- Tema oscuro/claro/system
-- Barra de bookmarks
-- Estadísticas de navegación
-- **Descargador de medios** (yt-dlp integrado) — progreso en tiempo real, soporte de video/audio
-- **Mute por pestaña** — silenciar/restaurar audio desde la UI
-- **Nueva pestaña enriquecida** — clima (wttr.in), noticias RSS, Google Trends, búsqueda por voz
-- **Panel de favoritos** integrado
-- **Herramientas de desarrollador** en el menú
+```
+flux-browser/
+  flux-browser.exe      ← abrir esto
+  flux-backend.exe      ← arranca automáticamente
+  yt-dlp.exe            ← bundleado para descargas de video/audio
+  flux.db               ← se crea solo en el primer arranque
+```
 
-**En desarrollo activo (motor propio):**
-- Renderer de píxeles propio (OrionSoftRenderer) — implementado, pendiente de conectar al browser
-- JavaScript engine (QuickJS) — implementado con DOM bindings, fetch, eventos
-- CSS cascade completo — implementado
-- Integración del renderer con la ventana nativa
+No se requiere: Node.js · PostgreSQL · Docker · Python · yt-dlp manual.
 
-### Requisitos
+---
+
+## Compilar desde el código fuente
+
+### Requisitos (solo para compilar)
 
 - [Rust](https://rustup.rs/) 1.75+
-- [Node.js](https://nodejs.org/) 20+
-- [PostgreSQL](https://www.postgresql.org/) 15+
-- [Docker Desktop](https://www.docker.com/) (para SearXNG)
+- [Node.js](https://nodejs.org/) 18+ (solo para el paso de compilación del backend)
 - Windows 10/11 con WebView2 (preinstalado en Win11) o macOS 11+
 
-### Instalación
+### Pasos
 
-```bash
+```powershell
 # 1. Clonar
-git clone https://github.com/GabrielZapata/flux-browser.git
+git clone https://github.com/tu-usuario/flux-browser.git
 cd flux-browser
 
-# 2. SearXNG
-docker compose up -d
+# 2. Descargar yt-dlp (una sola vez)
+.\scripts\download-yt-dlp.ps1
 
-# 3. Backend
-cd flux-backend
-cp .env.example .env   # completar variables (ver abajo)
-npm install
-npx prisma migrate dev
-npm run dev            # :3000
-cd ..
+# 3. Compilar el backend → flux-engine/bin/flux-backend.exe
+.\scripts\build-backend.ps1
 
-# 4. UI React
-npm install
-npm run dev            # :8082
-
-# 5. Motor Rust (en otra terminal)
+# 4. Compilar el browser (incluye ambos exe automáticamente)
 cd flux-engine
-cargo run --bin flux-browser   # abre la ventana nativa
+cargo build --release --bin orion-browser
+
+# El resultado está en flux-engine/target/release/
+# Copiar a una carpeta de distribución:
+#   orion-browser.exe  flux-backend.exe  yt-dlp.exe
 ```
 
 ### Variables de entorno del backend
 
 ```env
-DATABASE_URL=postgresql://usuario:password@localhost:5432/orion
+# flux-backend/.env
+DATABASE_URL=file:./flux.db          # SQLite local (por defecto)
 JWT_SECRET=cambia_esto_por_un_secret_largo
-GEMINI_API_KEY=tu_api_key_aqui          # opcional, para Flux AI
-SEARXNG_URL=http://localhost:8080
-ORION_ENGINE_URL=http://localhost:4000
+GEMINI_API_KEY=tu_api_key_aqui       # para Flux AI, traducción y detección de canciones
 PORT=3000
 ```
 
-> Las features de IA (Flux AI, detección de canciones) requieren `GEMINI_API_KEY`.
-> La búsqueda web y el resto del browser funcionan sin ella.
+> Las features de IA (Flux AI, traducción, detección de canciones, OCR) requieren `GEMINI_API_KEY`.
+> La navegación, búsqueda e historial funcionan sin ella.
+
+### SearXNG (opcional — búsqueda privada avanzada)
+
+```bash
+# Solo si quieres búsqueda completamente privada y sin límites
+docker compose up -d
+# Si no está activo, la búsqueda usa DuckDuckGo automáticamente
+```
 
 ---
 
@@ -470,6 +466,8 @@ PORT=3000
 - [x] SecurityLayer — HTTPS-only + HSTS preload
 - [x] SecurityLayer — Ad/tracker blocker
 - [x] JS sandbox — límites de heap/stack por tab
+- [x] yt-dlp bundleado — sin instalación manual para el usuario
+- [x] flux-backend.exe como sidecar — arranca y cierra con el browser
 - [ ] Conectar OrionSoftRenderer al content_view de la ventana nativa
 - [ ] Flexbox layout
 - [ ] Imágenes (`<img>` decodificada y pintada en el buffer)
@@ -489,7 +487,8 @@ PORT=3000
 
 ### Flux Search
 
-- [x] SearXNG self-hosted (Docker)
+- [x] SearXNG self-hosted (Docker, opcional)
+- [x] Fallback automático a DuckDuckGo si SearXNG no está activo
 - [x] Re-ranking BM25 en Rust
 - [x] SearchPage con identidad Flux
 - [x] Paginación de resultados
@@ -504,11 +503,12 @@ PORT=3000
 - [x] Historial, bookmarks, tabs, preferencias
 - [x] Grupos de tabs
 - [x] Estadísticas de navegación (BrowsingStats, SiteVisit, HourlyActivity)
-- [x] Focus Mode con BlocketSite
+- [x] Focus Mode con BlockedSite
 - [x] Gemini IA (chat, resúmenes)
 - [x] Detección de canciones
 - [x] Registro de descargas
-- [ ] Migración a SQLite (sin dependencia de PostgreSQL para beta local)
+- [x] **Migración a SQLite** — sin dependencia de PostgreSQL ni Docker
+- [x] **Backend como exe standalone** — no requiere Node.js instalado
 - [ ] Sincronización entre dispositivos
 
 ### UI
@@ -527,10 +527,11 @@ PORT=3000
 - [x] Estadísticas de uso
 - [x] Configuración completa
 - [x] Nueva pestaña con clima, noticias RSS y Google Trends
-- [x] Descargador de medios (yt-dlp) con progreso en tiempo real
+- [x] Descargador de medios (yt-dlp bundleado) con progreso en tiempo real
 - [x] Mute por pestaña
 - [x] Panel de favoritos
 - [x] Herramientas de desarrollador
+- [x] **Servicio de traducción** — Gemini + fallback MyMemory (15 idiomas, sin API key extra)
 - [ ] Panel de privacidad en tiempo real (trackers bloqueados, upgrades HTTPS)
 - [ ] Historial visual con línea de tiempo
 
@@ -541,8 +542,10 @@ PORT=3000
 ```
 flux-browser/
 ├── flux-engine/          ← Motor del browser (Rust)
+│   ├── build.rs           ← copia yt-dlp.exe + flux-backend.exe al compilar
+│   ├── bin/               ← yt-dlp.exe + flux-backend.exe (bundleados)
 │   └── src/
-│       ├── bin/browser.rs ← Ventana nativa (tao + wry)
+│       ├── bin/browser.rs ← Ventana nativa (tao + wry) + sidecar backend
 │       ├── api/           ← Axum HTTP server :4000
 │       ├── js/            ← JavaScript runtime (QuickJS)
 │       ├── security/      ← CSP · HTTPS · HSTS · ad blocker
@@ -554,11 +557,20 @@ flux-browser/
 │       ├── fetcher/       ← HTTP client + SecurityLayer
 │       ├── extractor/     ← Metadata extractor
 │       └── ranker/        ← BM25 ranking
-├── flux-backend/         ← API de usuario (Node.js + Express :3000)
-├── searxng/               ← Config SearXNG (Docker :8080)
-├── docker-compose.yml     ← SearXNG + Redis
-├── src/                   ← React UI (chrome del browser :8082)
+├── flux-backend/         ← API de usuario (Node.js → exe standalone)
+│   ├── prisma/schema.prisma ← SQLite, sin servidor de base de datos
+│   └── src/
+│       ├── routes/translationRoutes.ts ← traducción vía Gemini
+│       └── services/geminiService.ts   ← IA + traducción + detección
+├── scripts/
+│   ├── download-yt-dlp.ps1  ← descarga yt-dlp antes de compilar
+│   └── build-backend.ps1    ← compila backend → flux-backend.exe
+├── searxng/               ← Config SearXNG (opcional, Docker :8080)
+├── docker-compose.yml     ← SearXNG + Redis (opcional)
+├── src/                   ← React UI (chrome del browser)
 │   ├── components/browser/
+│   ├── services/
+│   │   └── translationService.ts ← traducción con fallback MyMemory
 │   ├── hooks/
 │   ├── pages/
 │   └── contexts/

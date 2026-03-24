@@ -257,6 +257,52 @@ export class GeminiService {
     return parseGeminiJson(result.response.text());
   }
 
+  async translateText(text: string, targetLanguage: string, sourceLanguage?: string) {
+    const from = sourceLanguage ? `del ${sourceLanguage}` : 'detectando el idioma automáticamente';
+    const prompt = `
+      Traduce el siguiente texto ${from} al ${targetLanguage}.
+      Solo devuelve la traducción y el idioma detectado, sin explicaciones adicionales.
+
+      TEXTO: "${text}"
+
+      RESPONDE EN JSON:
+      {
+        "translatedText": "traducción al ${targetLanguage}",
+        "detectedLanguage": "idioma original detectado en inglés (ej: Spanish, English, French)",
+        "detectedLanguageCode": "código ISO 639-1 (ej: es, en, fr)"
+      }
+    `;
+
+    const result = await this.model.generateContent(prompt);
+    return parseGeminiJson(result.response.text()) as {
+      translatedText: string;
+      detectedLanguage: string;
+      detectedLanguageCode: string;
+    };
+  }
+
+  async detectLanguage(text: string) {
+    const prompt = `
+      Detecta el idioma del siguiente texto.
+
+      TEXTO: "${text.substring(0, 500)}"
+
+      RESPONDE EN JSON:
+      {
+        "language": "nombre del idioma en inglés (ej: Spanish, English, French)",
+        "languageCode": "código ISO 639-1 (ej: es, en, fr)",
+        "confidence": "high|medium|low"
+      }
+    `;
+
+    const result = await this.model.generateContent(prompt);
+    return parseGeminiJson(result.response.text()) as {
+      language: string;
+      languageCode: string;
+      confidence: string;
+    };
+  }
+
   clearHistory() {
     this.conversationHistory = [];
   }

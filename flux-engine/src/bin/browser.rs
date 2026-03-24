@@ -104,6 +104,65 @@ enum UserEvent {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/// Localiza flux-backend.exe en este orden de prioridad:
+///   1. Junto al ejecutable de Flux (bundleado, producción)
+///   2. En <raíz_proyecto>/flux-engine/bin/ (desarrollo)
+///   3. En el PATH del sistema
+fn find_backend() -> std::path::PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        let bundled = exe
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("flux-backend.exe");
+        if bundled.exists() {
+            println!("[flux-backend] encontrado (bundleado): {}", bundled.display());
+            return bundled;
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        let candidates = [
+            exe.parent().and_then(|p| p.parent()).and_then(|p| p.parent())
+               .map(|p| p.join("bin").join("flux-backend.exe")),
+            exe.parent().and_then(|p| p.parent()).and_then(|p| p.parent()).and_then(|p| p.parent())
+               .map(|p| p.join("flux-engine").join("bin").join("flux-backend.exe")),
+        ];
+        for candidate in candidates.iter().flatten() {
+            if candidate.exists() {
+                println!("[flux-backend] encontrado (dev/bin): {}", candidate.display());
+                return candidate.clone();
+            }
+        }
+    }
+
+    println!("[flux-backend] buscando en PATH del sistema…");
+    std::path::PathBuf::from("flux-backend")
+}
+
+/// Lanza flux-backend.exe como proceso hijo y devuelve el handle.
+/// Si no se encuentra el ejecutable, devuelve None (el navegador sigue funcionando
+/// con funcionalidad reducida — sin historial/favoritos en base de datos).
+fn spawn_backend() -> Option<std::process::Child> {
+    let backend_path = find_backend();
+    match std::process::Command::new(&backend_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(child) => {
+            println!("[flux-backend] proceso iniciado (PID {})", child.id());
+            Some(child)
+        }
+        Err(e) => {
+            println!("[flux-backend] no se pudo iniciar (funcionalidad reducida): {e}");
+            None
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /// Localiza yt-dlp en este orden de prioridad:
 ///   1. Junto al ejecutable de Orion  (bundleado, producción)
 ///   2. En <raíz_proyecto>/orion-engine/bin/  (desarrollo)
@@ -409,7 +468,14 @@ fn main() {
 
     std::thread::sleep(std::time::Duration::from_millis(300));
 
-    // ── 2. Event loop ──────────────────────────────────────────────────────
+    // ── 2. Backend Node.js como sidecar ───────────────────────────────────
+    let mut backend_process = spawn_backend();
+    // Dar tiempo al backend para estar listo antes de que el UI lo necesite
+    if backend_process.is_some() {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+    }
+
+    // ── 3. Event loop ──────────────────────────────────────────────────────
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy          = event_loop.create_proxy();
     let proxy_nav      = proxy.clone();
@@ -628,6 +694,10 @@ fn main() {
         match event {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 println!("[orion-browser] Cerrando…");
+                if let Some(ref mut p) = backend_process {
+                    let _ = p.kill();
+                    println!("[flux-backend] proceso detenido");
+                }
                 *control_flow = ControlFlow::Exit;
             }
 
@@ -683,7 +753,13 @@ fn main() {
             // ── Controles de ventana ───────────────────────────────────────
             Event::UserEvent(UserEvent::WindowMinimize) => { window.set_minimized(true); }
             Event::UserEvent(UserEvent::WindowMaximize) => { window.set_maximized(!window.is_maximized()); }
-            Event::UserEvent(UserEvent::WindowClose)    => { *control_flow = ControlFlow::Exit; }
+            Event::UserEvent(UserEvent::WindowClose) => {
+                if let Some(ref mut p) = backend_process {
+                    let _ = p.kill();
+                    println!("[flux-backend] proceso detenido");
+                }
+                *control_flow = ControlFlow::Exit;
+            }
             Event::UserEvent(UserEvent::WindowDrag)     => { let _ = window.drag_window(); }
 
             // ── Chrome height ──────────────────────────────────────────────

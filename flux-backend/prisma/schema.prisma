@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -122,7 +123,7 @@ model BlockedSite {
 
 model BrowsingStats {
   id              String   @id @default(cuid())
-  date            DateTime @default(now()) @db.Date
+  date            DateTime @default(now())
   minutesBrowsed  Int      @default(0)
   sitesVisited    Int      @default(0)
   trackersBlocked Int      @default(0)
@@ -139,7 +140,7 @@ model SiteVisit {
   minutes   Int      @default(0)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date      DateTime @default(now()) @db.Date
+  date      DateTime @default(now())
 
   @@unique([domain, userId, date])
 }
@@ -159,7 +160,7 @@ model UserPreference {
 
 model HourlyActivity {
   id     String   @id @default(cuid())
-  date   DateTime @default(now()) @db.Date
+  date   DateTime @default(now())
   hour   Int
   hits   Int      @default(1)
   userId String
@@ -203,7 +204,7 @@ model MediaDownload {
 model AiConversation {
   id        String   @id @default(cuid())
   query     String
-  response  String   @db.Text
+  response  String
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

@@ -30,6 +30,7 @@ import proxyRoutes from "./routes/proxyRoutes";
 import trendsRoutes from "./routes/trendsRoutes";
 import newsRoutes from "./routes/newsRoutes";
 import weatherRoutes from "./routes/weatherRoutes";
+import translationRoutes from "./routes/translationRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,19 +70,20 @@ app.use("/api/vision", visionRoutes);
 app.use("/api/trends", trendsRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/weather", weatherRoutes);
+app.use("/api/translation", translationRoutes);
 // Health Check
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: "Backend Orion funcionando",
-      database: "PostgreSQL conectada",
+      database: "SQLite conectada",
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
     res.status(503).json({
       status: "Backend Orion funcionando",
-      database: "PostgreSQL desconectada",
+      database: "SQLite desconectada",
       timestamp: new Date().toISOString(),
     });
   }
