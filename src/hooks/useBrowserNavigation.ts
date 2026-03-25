@@ -21,7 +21,7 @@ export function useBrowserNavigation({
 	const isAuthenticated = authService.isAuthenticated();
 	const { config: engineConfig } = useSearchEngine();
 	const { toast } = useToast();
-	const navigation = useNavigationHistory("orion://welcome");
+	const navigation = useNavigationHistory("flux://welcome");
 
 	const [reloadTrigger, setReloadTrigger] = useState(0);
 	const [stopTrigger, setStopTrigger] = useState(0);
@@ -35,7 +35,7 @@ export function useBrowserNavigation({
 	});
 
 	const saveRecentSearch = useCallback((url: string) => {
-		if (url.startsWith("orion://")) return;
+		if (url.startsWith("flux://")) return;
 		setRecentSearches((prev) => {
 			const updated = [url, ...prev.filter((i) => i !== url)].slice(0, 5);
 			localStorage.setItem("orion-recent-searches", JSON.stringify(updated));
@@ -49,12 +49,12 @@ export function useBrowserNavigation({
 			if (
 				url.startsWith("http://") ||
 				url.startsWith("https://") ||
-				url.startsWith("orion://")
+				url.startsWith("flux://")
 			)
 				return url;
-			if (url.includes(" ")) return `orion://search?q=${encodeURIComponent(url)}`;
+			if (url.includes(" ")) return `flux://search?q=${encodeURIComponent(url)}`;
 			if (url.includes(".")) return `https://${url}`;
-			return `orion://search?q=${encodeURIComponent(url)}`;
+			return `flux://search?q=${encodeURIComponent(url)}`;
 		},
 		[engineConfig],
 	);
@@ -69,7 +69,7 @@ export function useBrowserNavigation({
 				? normalizedUrl.split("://")[1].split("/")[0]
 				: normalizedUrl;
 
-			if (normalizedUrl.startsWith("orion://ai")) {
+			if (normalizedUrl.startsWith("flux://ai")) {
 				const q = new URLSearchParams(normalizedUrl.split("?")[1] ?? "").get("q") ?? "";
 				pageTitle = q ? `✦ ${q.slice(0, 40)}${q.length > 40 ? "…" : ""}` : "✦ Flux AI";
 			}

@@ -402,6 +402,11 @@
     50%  { transform: scale(1.3); opacity: 0.3; }
     100% { transform: scale(0); opacity: 0; }
   }
+  /* Onboarding: orbiting dot around logo */
+  @keyframes orbit {
+    from { transform: rotate(0deg) translateX(52px) rotate(0deg); }
+    to   { transform: rotate(360deg) translateX(52px) rotate(-360deg); }
+  }
 }
 
 /* ══════════════════════════════════════════

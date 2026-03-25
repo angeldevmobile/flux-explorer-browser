@@ -31,7 +31,7 @@ const isElectron = false;
 
 // Rutas internas de Flux que nunca deben ir por el proxy
 const isInternalUrl = (u: string) =>
-  u.startsWith("orion://") || u.startsWith("about:") || u.startsWith("data:");
+  u.startsWith("flux://") || u.startsWith("about:") || u.startsWith("data:");
 
 const toProxyUrl = (u: string) => {
   if (isInternalUrl(u)) return u;

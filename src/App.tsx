@@ -1,14 +1,17 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth"; 
+import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { Toaster } from "@/components/ui/toaster";
 import { BrowserWindow } from "@/components/browser/BrowserWindow";
 import Login from "@/pages/Login";
+import { WelcomeOnboarding, shouldShowOnboarding } from "@/components/onboarding/WelcomeOnboarding";
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState(() => shouldShowOnboarding());
 
   if (loading) {
     return (
@@ -24,24 +27,25 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          isAuthenticated ? <Navigate to="/browser" replace /> : <Login />
-        }
-      />
-      <Route
-        path="/browser"
-        element={<BrowserWindow />}
-      />
-      <Route
-        path="*"
-        element={
-          <Navigate to={isAuthenticated ? "/browser" : "/login"} replace />
-        }
-      />
-    </Routes>
+    <>
+      {showOnboarding && isAuthenticated && (
+        <WelcomeOnboarding onDone={() => setShowOnboarding(false)} />
+      )}
+      <Routes>
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/browser" replace /> : <Login />}
+        />
+        <Route
+          path="/browser"
+          element={isAuthenticated ? <BrowserWindow /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="*"
+          element={<Navigate to={isAuthenticated ? "/browser" : "/login"} replace />}
+        />
+      </Routes>
+    </>
   );
 }
 

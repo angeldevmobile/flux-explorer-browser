@@ -47,7 +47,7 @@ export const SEARCH_ENGINES: SearchEngineConfig[] = [
   {
     id: "orion-ai",
     name: "Flux AI",
-    searchUrl: (q) => `orion://ai?q=${encodeURIComponent(q)}`,
+    searchUrl: (q) => `flux://ai?q=${encodeURIComponent(q)}`,
     color: "text-cyan-400",
     bgColor: "bg-cyan-500/10 border-cyan-500/20",
     letter: "✦",

@@ -137,6 +137,18 @@ export const authService = {
   isAuthenticated: () => {
     return !!localStorage.getItem('token');
   },
+
+  // Auto-login local sin registro: crea usuario "local" en SQLite si no existe
+  localLogin: async () => {
+    try {
+      const response = await api.post('/auth/local');
+      localStorage.setItem('token', response.data.token);
+      window.dispatchEvent(new CustomEvent('flux:auth'));
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // Tab Services

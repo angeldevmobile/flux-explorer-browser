@@ -68,14 +68,14 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
     const input = inputRef.current?.value.trim();
     if (input) {
       setShowSuggestions(false);
-      onNavigate(`orion://search?q=${encodeURIComponent(input)}`);
+      onNavigate(`flux://search?q=${encodeURIComponent(input)}`);
     }
   };
 
   const selectSuggestion = (s: string) => {
     if (inputRef.current) inputRef.current.value = s;
     setShowSuggestions(false);
-    onNavigate(`orion://search?q=${encodeURIComponent(s)}`);
+    onNavigate(`flux://search?q=${encodeURIComponent(s)}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

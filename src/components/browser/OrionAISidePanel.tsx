@@ -183,7 +183,7 @@ export function OrionAISidePanel({ open, onClose, currentUrl, currentTitle }: Or
   if (!open) return null;
 
   return (
-    <div className="h-full w-[340px] flex-shrink-0 flex flex-col bg-[#0b0e14] border-l border-white/8 relative">
+    <div className="h-full w-[340px] flex-shrink-0 flex flex-col bg-[#0b0e14] border-l border-white/8 relative pointer-events-auto">
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/8 flex-shrink-0">
         <div className="flex items-center gap-2">

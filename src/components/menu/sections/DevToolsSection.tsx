@@ -62,7 +62,7 @@ export function DevToolsSection({ currentUrl, onNavigate, onClose, onViewSource 
         onClick={() => {
           const html = document.documentElement.outerHTML;
           onViewSource?.(html, currentUrl);
-          onNavigate("orion://view-source");
+          onNavigate("flux://view-source");
           onClose();
         }}
         className="mt-4 w-full flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.05] transition-all text-left group"

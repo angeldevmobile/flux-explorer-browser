@@ -102,14 +102,14 @@ export function useTabs() {
 
 	const handleNewTab = useCallback(async () => {
 		const tempId = `temp-${Date.now()}`;
-		const newTab: Tab = { id: tempId, title: "Nueva pestaña", url: "orion://newtab" };
+		const newTab: Tab = { id: tempId, title: "Nueva pestaña", url: "flux://newtab" };
 		setTabs((prev) => [...prev, newTab]);
 		setActiveTabId(tempId);
 
 		if (isAuthenticated) {
 			try {
 				const created = await tabService.createTab({
-					url: "orion://newtab",
+					url: "flux://newtab",
 					title: "Nueva pestaña",
 				});
 				setTabs((prev) =>
@@ -161,7 +161,7 @@ export function useTabs() {
 						(domain.includes("google.") && parsedUrl.pathname.startsWith("/search")) ||
 						domain === "search.yahoo.com" ||
 						domain.includes("duckduckgo.com");
-					if (!newUrl.startsWith("orion://") && !isSearchEngine) {
+					if (!newUrl.startsWith("flux://") && !isSearchEngine) {
 						statsService.recordVisit(domain).catch(() => {});
 						historyService.addHistory({ url: newUrl, title: domain }).catch(() => {});
 					}

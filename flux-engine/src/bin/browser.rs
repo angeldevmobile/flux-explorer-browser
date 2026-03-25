@@ -32,7 +32,7 @@ use wry::http::{header::CONTENT_TYPE, Request as WryRequest, Response as WryResp
 use std::sync::Arc;
 use orion_engine::security::{SecurityLayer, UrlDecision};
 
-static ICON_BYTES: &[u8] = include_bytes!("../../../public/favicon.ico");
+static ICON_BYTES: &[u8] = include_bytes!("../../../assets/logo_flux.ico");
 
 fn load_icon() -> Option<Icon> {
     let img = image::load_from_memory(ICON_BYTES).ok()?.into_rgba8();
@@ -103,6 +103,8 @@ enum UserEvent {
     SetMute(bool),
     /// Notificar a React que un sitio solicitó un permiso.
     PermissionRequested { origin: String, kind: String },
+    /// Abrir/cerrar el panel lateral de IA (ancho en píxeles lógicos, 0 = cerrado).
+    AiPanelWidth(f64),
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -679,7 +681,7 @@ fn main() {
         .with_devtools(cfg!(debug_assertions))
         .with_navigation_handler(move |url: String| {
             if url.starts_with("about:")
-                || url.starts_with("orion://")
+                || url.starts_with("flux://")
                 || url.starts_with("data:")
                 || url.starts_with("blob:")
                 || url.starts_with("http://localhost:")
@@ -891,6 +893,10 @@ fn main() {
                             println!("[flux-perms] Decisión guardada — {origin} {kind}: {allow}");
                         }
                     }
+                    Some("ai_panel") => {
+                        let width = val.get("width").and_then(|w| w.as_f64()).unwrap_or(0.0);
+                        let _ = proxy.send_event(UserEvent::AiPanelWidth(width));
+                    }
                     Some(cmd) => println!("[orion-browser] Comando desconocido: {cmd}"),
                     None      => println!("[orion-browser] IPC sin campo 'cmd'"),
                 }
@@ -908,6 +914,7 @@ fn main() {
 
     let chrome_full  = std::cell::Cell::new(true);
     let chrome_h     = std::cell::Cell::new(CHROME_HEIGHT);
+    let ai_panel_w   = std::cell::Cell::new(0.0_f64);
     let ctrl_pressed = std::cell::Cell::new(false);
 
     // ── 5. Event loop ──────────────────────────────────────────────────────
@@ -931,10 +938,11 @@ fn main() {
                 let w  = phys_size.width  as f64 / scale;
                 let h  = phys_size.height as f64 / scale;
                 let ch = chrome_h.get();
+                let pw = ai_panel_w.get();
 
                 let _ = content_view.set_bounds(Rect {
                     position: LogicalPosition::new(0.0, ch).into(),
-                    size: LogicalSize::new(w, (h - ch).max(0.0)).into(),
+                    size: LogicalSize::new((w - pw).max(0.0), (h - ch).max(0.0)).into(),
                 });
 
                 if chrome_full.get() {
@@ -993,10 +1001,11 @@ fn main() {
                 let phys  = window.inner_size();
                 let w  = phys.width  as f64 / scale;
                 let wh = phys.height as f64 / scale;
+                let pw = ai_panel_w.get();
 
                 let _ = content_view.set_bounds(Rect {
                     position: LogicalPosition::new(0.0, new_h).into(),
-                    size: LogicalSize::new(w, (wh - new_h).max(0.0)).into(),
+                    size: LogicalSize::new((w - pw).max(0.0), (wh - new_h).max(0.0)).into(),
                 });
 
                 if !chrome_full.get() {
@@ -1007,6 +1016,23 @@ fn main() {
                 }
 
                 println!("[orion-browser] chrome_h actualizado → {new_h}px");
+            }
+
+            // ── AI Panel width ─────────────────────────────────────────────
+            Event::UserEvent(UserEvent::AiPanelWidth(new_pw)) => {
+                ai_panel_w.set(new_pw);
+                let scale = window.scale_factor();
+                let phys  = window.inner_size();
+                let w  = phys.width  as f64 / scale;
+                let wh = phys.height as f64 / scale;
+                let ch = chrome_h.get();
+
+                let _ = content_view.set_bounds(Rect {
+                    position: LogicalPosition::new(0.0, ch).into(),
+                    size: LogicalSize::new((w - new_pw).max(0.0), (wh - ch).max(0.0)).into(),
+                });
+
+                println!("[orion-browser] ai_panel_w → {new_pw}px");
             }
 
             // ── Reload / Stop / Zoom ───────────────────────────────────────
@@ -1242,7 +1268,7 @@ fn main() {
                     let _ = content_view.load_url(&final_url);
 
                 } else {
-                    // orion:// → React renderiza, chrome ocupa toda la ventana
+                    // flux:// → React renderiza, chrome ocupa toda la ventana
                     chrome_full.set(true);
                     let _ = chrome_view.set_bounds(Rect {
                         position: LogicalPosition::new(0.0, 0.0).into(),

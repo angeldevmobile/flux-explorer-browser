@@ -244,7 +244,7 @@ export const OrionAIPage = ({ query, onNavigate }: OrionAIPageProps) => {
   const handleNewSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchInput.trim();
-    if (q) onNavigate(`orion://ai?q=${encodeURIComponent(q)}`);
+    if (q) onNavigate(`flux://ai?q=${encodeURIComponent(q)}`);
   };
 
   const isMainDone = !mainLoading && !mainTyping;
@@ -258,7 +258,7 @@ export const OrionAIPage = ({ query, onNavigate }: OrionAIPageProps) => {
           {/* Logo */}
           <div
             className="shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-400 flex items-center justify-center shadow-md shadow-cyan-500/20 cursor-pointer"
-            onClick={() => onNavigate("orion://newtab")}
+            onClick={() => onNavigate("flux://newtab")}
           >
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
@@ -331,7 +331,7 @@ export const OrionAIPage = ({ query, onNavigate }: OrionAIPageProps) => {
                   <div className="flex-1 flex items-center gap-1.5 bg-background/40 rounded-md px-2 py-0.5 border border-border/30">
                     <Sparkles className="w-2.5 h-2.5 text-cyan-400/60 shrink-0" />
                     <span className="text-[10px] text-muted-foreground/50 font-mono truncate">
-                      orion://ai · {query.slice(0, 35)}{query.length > 35 ? "…" : ""}
+                      flux://ai · {query.slice(0, 35)}{query.length > 35 ? "…" : ""}
                     </span>
                   </div>
                 </div>

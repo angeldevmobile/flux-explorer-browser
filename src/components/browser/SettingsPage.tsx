@@ -1293,55 +1293,55 @@ function PerformanceSettings() {
 // ── NAV ───────────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
 	{
-		id: "orion://settings",
+		id: "flux://settings",
 		label: "Configuración general",
 		icon: Settings,
 		color: "text-slate-300",
 	},
 	{
-		id: "orion://settings/shortcuts",
+		id: "flux://settings/shortcuts",
 		label: "Atajos de teclado",
 		icon: Keyboard,
 		color: "text-cyan-400",
 	},
 	{
-		id: "orion://settings/appearance",
+		id: "flux://settings/appearance",
 		label: "Apariencia y temas",
 		icon: Palette,
 		color: "text-violet-400",
 	},
 	{
-		id: "orion://settings/privacy",
+		id: "flux://settings/privacy",
 		label: "Privacidad y seguridad",
 		icon: Shield,
 		color: "text-emerald-400",
 	},
 	{
-		id: "orion://settings/search",
+		id: "flux://settings/search",
 		label: "Motor de búsqueda",
 		icon: Globe,
 		color: "text-amber-400",
 	},
 	{
-		id: "orion://settings/downloads",
+		id: "flux://settings/downloads",
 		label: "Descargas",
 		icon: Download,
 		color: "text-sky-400",
 	},
 	{
-		id: "orion://settings/sync",
+		id: "flux://settings/sync",
 		label: "Sincronización",
 		icon: Smartphone,
 		color: "text-rose-400",
 	},
 	{
-		id: "orion://settings/performance",
+		id: "flux://settings/performance",
 		label: "Rendimiento y energía",
 		icon: Gauge,
 		color: "text-orange-400",
 	},
 	{
-		id: "orion://about",
+		id: "flux://about",
 		label: "Acerca de Flux",
 		icon: Info,
 		color: "text-slate-500",
@@ -1349,36 +1349,36 @@ const NAV_ITEMS = [
 ];
 
 const TITLES: Record<string, string> = {
-	"orion://settings": "Configuración general",
-	"orion://settings/shortcuts": "Atajos de teclado",
-	"orion://settings/appearance": "Apariencia y temas",
-	"orion://settings/privacy": "Privacidad y seguridad",
-	"orion://settings/search": "Motor de búsqueda",
-	"orion://settings/downloads": "Descargas",
-	"orion://settings/sync": "Sincronización",
-	"orion://settings/performance": "Rendimiento y energía",
-	"orion://about": "Acerca de Flux",
+	"flux://settings": "Configuración general",
+	"flux://settings/shortcuts": "Atajos de teclado",
+	"flux://settings/appearance": "Apariencia y temas",
+	"flux://settings/privacy": "Privacidad y seguridad",
+	"flux://settings/search": "Motor de búsqueda",
+	"flux://settings/downloads": "Descargas",
+	"flux://settings/sync": "Sincronización",
+	"flux://settings/performance": "Rendimiento y energía",
+	"flux://about": "Acerca de Flux",
 };
 
 function renderSection(url: string) {
 	switch (url) {
-		case "orion://settings":
+		case "flux://settings":
 			return <GeneralSettings />;
-		case "orion://settings/shortcuts":
+		case "flux://settings/shortcuts":
 			return <ShortcutsSettings />;
-		case "orion://settings/appearance":
+		case "flux://settings/appearance":
 			return <AppearanceSettings />;
-		case "orion://settings/privacy":
+		case "flux://settings/privacy":
 			return <PrivacySettings />;
-		case "orion://settings/search":
+		case "flux://settings/search":
 			return <SearchSettings />;
-		case "orion://settings/downloads":
+		case "flux://settings/downloads":
 			return <DownloadsSettings />;
-		case "orion://settings/sync":
+		case "flux://settings/sync":
 			return <SyncSettings />;
-		case "orion://settings/performance":
+		case "flux://settings/performance":
 			return <PerformanceSettings />;
-		case "orion://about":
+		case "flux://about":
 			return <AboutPage />;
 		default:
 			return <GeneralSettings />;
@@ -1454,7 +1454,7 @@ export const SettingsPage = ({ url, onNavigate }: SettingsPageProps) => {
 						{TITLES[url] ?? "Configuración"}
 					</h1>
 					<p className="text-sm text-muted-foreground mb-8">
-						{url === "orion://about"
+						{url === "flux://about"
 							? "Información sobre Flux Browser"
 							: "Gestiona tus preferencias de Flux"}
 					</p>

@@ -30,7 +30,7 @@ export const SearchResultsPanel = ({ query, onNavigate }: SearchResultsPanelProp
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const input = (e.currentTarget.elements.namedItem("q") as HTMLInputElement).value.trim();
-    if (input) onNavigate(`orion://search?q=${encodeURIComponent(input)}`);
+    if (input) onNavigate(`flux://search?q=${encodeURIComponent(input)}`);
   };
 
   return (

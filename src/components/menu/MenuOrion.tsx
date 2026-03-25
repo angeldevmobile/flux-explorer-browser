@@ -368,7 +368,7 @@ export const BrowserMenu = ({
 								icon={<History className="w-3.5 h-3.5" />}
 								label="Historial"
 								onClick={() => {
-									onNavigate("orion://history");
+									onNavigate("flux://history");
 									onClose();
 								}}
 							/>
@@ -376,7 +376,7 @@ export const BrowserMenu = ({
 								icon={<Download className="w-3.5 h-3.5" />}
 								label="Descargas"
 								onClick={() => {
-									onNavigate("orion://downloads");
+									onNavigate("flux://downloads");
 									onClose();
 								}}
 							/>
@@ -384,7 +384,7 @@ export const BrowserMenu = ({
 								icon={<Bookmark className="w-3.5 h-3.5" />}
 								label="Favoritos"
 								onClick={() => {
-									onNavigate("orion://bookmarks");
+									onNavigate("flux://bookmarks");
 									onClose();
 								}}
 							/>
@@ -447,7 +447,7 @@ export const BrowserMenu = ({
 					<div className="p-3 border-t border-white/[0.06]">
 						<button
 							onClick={() => {
-								onNavigate("orion://help");
+								onNavigate("flux://help");
 								onClose();
 							}}
 							className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-white/[0.04] text-slate-600 hover:text-slate-300 transition-all">

@@ -94,27 +94,27 @@ interface SiteSecurityInfo {
    CONSTANTS
    ═══════════════════════════════════════════ */
 const ORION_INTERNAL = [
-	"orion://welcome",
-	"orion://newtab",
-	"orion://settings",
+	"flux://welcome",
+	"flux://newtab",
+	"flux://settings",
 ];
 const isInternalUrl = (url: string) =>
 	ORION_INTERNAL.some((p) => url.startsWith(p));
 
 const toOrionDisplay = (url: string): string => {
 	if (isInternalUrl(url)) return url;
-	return url.replace(/^https?:\/\//, "orion://");
+	return url.replace(/^https?:\/\//, "flux://");
 };
 
 const toRealUrl = (input: string): string => {
 	if (isInternalUrl(input)) return input;
-	if (input.startsWith("orion://")) return "https://" + input.slice(8);
+	if (input.startsWith("flux://")) return "https://" + input.slice(8);
 	return input;
 };
 
 const getDomain = (url: string): string => {
 	try {
-		return new URL(url.replace("orion://", "https://")).hostname;
+		return new URL(url.replace("flux://", "https://")).hostname;
 	} catch {
 		return url;
 	}
@@ -379,7 +379,7 @@ export const AddressBar = ({
 					.map((s: string) => ({
 						type: "suggestion" as const,
 						title: s,
-						url: `orion://search?q=${encodeURIComponent(s)}`,
+						url: `flux://search?q=${encodeURIComponent(s)}`,
 						description: "Flux Search",
 					}));
 				setRemoteSuggestions(suggestions);
@@ -407,7 +407,7 @@ export const AddressBar = ({
 		results.push({
 			type: "suggestion",
 			title: `Buscar "${filterQuery}"`,
-			url: `orion://search?q=${encodeURIComponent(filterQuery)}`,
+			url: `flux://search?q=${encodeURIComponent(filterQuery)}`,
 					description: "Flux Search",
 		});
 
@@ -545,7 +545,7 @@ export const AddressBar = ({
 				title: pageTitle || domain,
 				url,
 			});
-			toast({ title: "Añadido a favoritos", description: toOrionDisplay(url) });
+			toast({ title: "⭐ Favorito guardado", description: toOrionDisplay(url) });
 		}
 	};
 

@@ -84,6 +84,12 @@ export const BrowserWindow = () => {
 	const [readerMode, setReaderMode] = useState(false);
 	const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
+	// Notifica a Rust para redimensionar el content_view cuando el panel AI abre/cierra
+	useEffect(() => {
+		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
+		ipc?.postMessage(JSON.stringify({ cmd: "ai_panel", width: aiPanelOpen ? 340 : 0 }));
+	}, [aiPanelOpen]);
+
 	const handlePrivacyModeChange = (value: boolean) => {
 		setPrivacyMode(value);
 	};
@@ -172,7 +178,7 @@ export const BrowserWindow = () => {
 	// ── IPC: sincronizar tab activo con el content_view nativo ─────────────
 	// Cuando el tab activo cambia de URL, avisamos al WebView nativo (wry).
 	// http(s)://  → content_view carga la página directamente (sin proxy).
-	// orion://    → content_view vuelve a about:blank (React renderiza la página).
+	// flux://    → content_view vuelve a about:blank (React renderiza la página).
 	const lastSentUrlRef = useRef<string>("");
 	useEffect(() => {
 		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
@@ -379,7 +385,7 @@ export const BrowserWindow = () => {
 						canGoForward={navigation.canGoForward}
 						onBack={handleBack}
 						onForward={handleForward}
-						onHome={() => handleNavigate("orion://welcome")}
+						onHome={() => handleNavigate("flux://welcome")}
 						onMenu={() => setIsMenuOpen(!isMenuOpen)}
 					/>
 
@@ -394,8 +400,6 @@ export const BrowserWindow = () => {
 							onPrivacyModeChange={handlePrivacyModeChange}
 							readerMode={readerMode}
 							onReaderModeChange={handleReaderModeChange}
-						aiPanelOpen={aiPanelOpen}
-						onToggleAIPanel={() => setAiPanelOpen(v => !v)}
 						/>
 					</div>
 
@@ -456,7 +460,7 @@ export const BrowserWindow = () => {
 			{/* ═══ Content ═══ */}
 			{/* bg-transparent cuando hay una página http(s):// activa:
 			    el content_view nativo de wry se ve a través del chrome React.
-			    Para páginas orion:// React renderiza con su propio fondo. */}
+			    Para páginas flux:// React renderiza con su propio fondo. */}
 			{/* pointer-events-none cuando hay página nativa: los clicks pasan al content_view */}
 			<div className={`flex-1 overflow-hidden relative flex flex-row ${showWebView ? "bg-transparent pointer-events-none" : "bg-background"}`}>
 				<div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -478,7 +482,7 @@ export const BrowserWindow = () => {
 							<FocusBlockedPage
 								domain={blockedDomain || ""}
 								timeRemaining={focusTimeRemaining}
-								onGoBack={() => handleNavigate("orion://newtab")}
+								onGoBack={() => handleNavigate("flux://newtab")}
 							/>
 						) : (
 							<>
@@ -508,13 +512,13 @@ export const BrowserWindow = () => {
 									</div>
 								)}
 
-								{activeTab?.url === "orion://view-source" && viewSourceHtml && (
+								{activeTab?.url === "flux://view-source" && viewSourceHtml && (
 									<div className="absolute inset-0">
 										<ViewSourcePage html={viewSourceHtml} url={viewSourceUrl} />
 									</div>
 								)}
 
-								{activeTab?.url.startsWith("orion://search") && (
+								{activeTab?.url.startsWith("flux://search") && (
 							<div className="absolute inset-0">
 								<SearchPage
 									query={
@@ -525,7 +529,7 @@ export const BrowserWindow = () => {
 							</div>
 						)}
 
-							{activeTab?.url.startsWith("orion://ai") && (
+							{activeTab?.url.startsWith("flux://ai") && (
 									<div className="absolute inset-0">
 										<OrionAIPage
 											query={
@@ -536,39 +540,39 @@ export const BrowserWindow = () => {
 									</div>
 								)}
 
-								{(activeTab?.url.startsWith("orion://settings") || activeTab?.url === "orion://about") && (
+								{(activeTab?.url.startsWith("flux://settings") || activeTab?.url === "flux://about") && (
 									<div className="absolute inset-0">
 										<SettingsPage url={activeTab.url} onNavigate={handleNavigate} />
 									</div>
 								)}
 
-								{activeTab?.url === "orion://history" && (
+								{activeTab?.url === "flux://history" && (
 									<div className="absolute inset-0">
 										<HistoryPage onNavigate={handleNavigate} />
 									</div>
 								)}
 
-								{activeTab?.url === "orion://bookmarks" && (
+								{activeTab?.url === "flux://bookmarks" && (
 									<div className="absolute inset-0">
 										<BookmarksPage onNavigate={handleNavigate} />
 									</div>
 								)}
 
-								{activeTab?.url === "orion://downloads" && (
+								{activeTab?.url === "flux://downloads" && (
 									<div className="absolute inset-0">
 										<DownloadsPage onNavigate={handleNavigate} />
 									</div>
 								)}
 
 								{!showWebView &&
-									activeTab?.url !== "orion://view-source" &&
-									!activeTab?.url.startsWith("orion://ai") &&
-								!activeTab?.url.startsWith("orion://search") &&
-									!activeTab?.url.startsWith("orion://settings") &&
-									activeTab?.url !== "orion://about" &&
-								activeTab?.url !== "orion://history" &&
-								activeTab?.url !== "orion://bookmarks" &&
-								activeTab?.url !== "orion://downloads" && (
+									activeTab?.url !== "flux://view-source" &&
+									!activeTab?.url.startsWith("flux://ai") &&
+								!activeTab?.url.startsWith("flux://search") &&
+									!activeTab?.url.startsWith("flux://settings") &&
+									activeTab?.url !== "flux://about" &&
+								activeTab?.url !== "flux://history" &&
+								activeTab?.url !== "flux://bookmarks" &&
+								activeTab?.url !== "flux://downloads" && (
 										<div className="absolute inset-0">
 											<NewTabPage
 												voiceState={voiceState}
@@ -633,6 +637,42 @@ export const BrowserWindow = () => {
 						</>
 					)}
 				</div>
+
+			{/* ═══ Flux AI Toggle Button (flotante lateral) ═══ */}
+			{!aiPanelOpen && (
+				<button
+					onClick={() => setAiPanelOpen(true)}
+					className="pointer-events-auto absolute right-0 bottom-1/2 translate-y-1/2 z-50 flex flex-col items-center justify-center gap-2 w-10 py-5 rounded-l-2xl transition-all duration-300 group"
+					style={{
+						background: "linear-gradient(180deg, #0f172a 0%, #0c1220 100%)",
+						border: "1px solid rgba(6,182,212,0.35)",
+						borderRight: "none",
+						boxShadow: "0 0 18px rgba(6,182,212,0.25), -4px 0 20px rgba(6,182,212,0.1), inset 0 1px 0 rgba(255,255,255,0.06)",
+					}}
+					title="Flux AI"
+					onMouseEnter={e => {
+						(e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 28px rgba(6,182,212,0.45), -6px 0 28px rgba(6,182,212,0.2), inset 0 1px 0 rgba(255,255,255,0.08)";
+						(e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(6,182,212,0.6)";
+					}}
+					onMouseLeave={e => {
+						(e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 18px rgba(6,182,212,0.25), -4px 0 20px rgba(6,182,212,0.1), inset 0 1px 0 rgba(255,255,255,0.06)";
+						(e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(6,182,212,0.35)";
+					}}
+				>
+					<div className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ boxShadow: "0 0 6px rgba(6,182,212,0.9)" }} />
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-cyan-400 group-hover:text-cyan-300 transition-colors" style={{ filter: "drop-shadow(0 0 4px rgba(6,182,212,0.8))" }}>
+						<path d="M12 3L10 9H4L9 13L7 19L12 15.5L17 19L15 13L20 9H14L12 3Z" fill="currentColor" opacity="0.25" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+						<path d="M12 8L11 11H8.5L10.5 12.5L9.5 15.5L12 14L14.5 15.5L13.5 12.5L15.5 11H13L12 8Z" fill="currentColor"/>
+					</svg>
+					<span
+						className="text-[9px] font-bold tracking-[0.15em] text-cyan-400/80 group-hover:text-cyan-300 transition-colors"
+						style={{ writingMode: "vertical-rl", textShadow: "0 0 8px rgba(6,182,212,0.6)" }}
+					>
+						AI
+					</span>
+					<div className="w-1.5 h-1.5 rounded-full bg-cyan-400/50" style={{ boxShadow: "0 0 4px rgba(6,182,212,0.6)" }} />
+				</button>
+			)}
 
 			{/* ═══ Flux AI Side Panel ═══ */}
 			<OrionAISidePanel

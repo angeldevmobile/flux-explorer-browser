@@ -74,7 +74,7 @@ export const SecurityPanel = ({
 	children,
 }: SecurityPanelProps) => {
 	const { toast } = useToast();
-	const isInternal = url.startsWith("orion://");
+	const isInternal = url.startsWith("flux://");
 
 	/* ── Privacy stats ── */
 	const EMPTY_STATS: PageStats = { trackersBlocked: 0, adsBlocked: 0, cookiesBlocked: 0, dataSavedBytes: 0 };

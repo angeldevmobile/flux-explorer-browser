@@ -49,7 +49,7 @@ export function MediaDownloaderModal({ open, onClose, currentUrl }: MediaDownloa
       setError("Motor nativo no disponible. El navegador debe ejecutarse como app nativa.");
       return;
     }
-    if (!currentUrl || currentUrl === "about:blank" || currentUrl.startsWith("orion://")) {
+    if (!currentUrl || currentUrl === "about:blank" || currentUrl.startsWith("flux://")) {
       setError("Navega a un video o audio antes de descargar.");
       return;
     }

@@ -223,7 +223,7 @@ export function DownloadsPanel({ onNavigate }: DownloadsPanelProps) {
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
-              <button onClick={() => { onNavigate("orion://settings/downloads"); setIsOpen(false); }}
+              <button onClick={() => { onNavigate("flux://settings/downloads"); setIsOpen(false); }}
                 className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
                 title="Ver todas las descargas">
                 <ExternalLink className="w-3.5 h-3.5" />

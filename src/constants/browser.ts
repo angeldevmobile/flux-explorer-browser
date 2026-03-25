@@ -24,5 +24,5 @@ export const QUICK_ACCESS = [
 export const DEFAULT_TAB: Tab = {
 	id: "default",
 	title: "Bienvenido a Flux",
-	url: "orion://welcome",
+	url: "flux://welcome",
 };
