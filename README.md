@@ -311,7 +311,8 @@ SearchPage (React)
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /api/search/web?q=` | Búsqueda web via SearXNG + re-ranking Rust |
+| `GET /api/search/web?q=` | Búsqueda web via SearXNG + re-ranking Rust + boost por historial personal (auth opcional) |
+| `GET /api/search/summary?q=` | Resumen IA de resultados via Gemini (requiere auth) |
 | `GET /api/search?q=` | Búsqueda en historial y favoritos del usuario |
 | `GET /api/suggestions?q=` | Autocompletado en barra de direcciones |
 | `POST /api/translation/translate` | Traducción de texto (Gemini + fallback MyMemory) |
@@ -519,9 +520,9 @@ docker compose up -d
 - [x] SearchPage con identidad Flux
 - [x] Paginación de resultados
 - [x] Autocompletado en barra de URL
-- [ ] Re-ranking personalizado por historial del usuario
-- [ ] Caché de búsquedas
-- [ ] Resumen IA de resultados
+- [x] Re-ranking personalizado por historial del usuario (boost proporcional a frecuencia de visitas)
+- [x] Caché de búsquedas en memoria (TTL 5 min — evita golpear SearXNG + engine en repetidas búsquedas)
+- [x] Resumen IA de resultados (Gemini, endpoint separado — no bloquea los resultados principales)
 
 ### Backend + Persistencia
 
@@ -535,7 +536,7 @@ docker compose up -d
 - [x] Registro de descargas
 - [x] **Migración a SQLite** — sin dependencia de PostgreSQL ni Docker
 - [x] **Backend como exe standalone** — no requiere Node.js instalado
-- [ ] Sincronización entre dispositivos
+- [ ] Sincronización entre dispositivos *(UI lista en Settings, backend pendiente)*
 
 ### UI
 
@@ -567,8 +568,8 @@ docker compose up -d
 - [x] Multi-tab con WebView nativo por pestaña (cada tab = WebView2 independiente)
 - [x] Tab discard — libera RAM de pestañas inactivas > 10 min automáticamente
 - [x] Panel de seguridad por sitio (HTTPS, trackers, tiempo de carga)
-- [ ] Panel de privacidad en tiempo real (trackers bloqueados, upgrades HTTPS)
-- [ ] Historial visual con línea de tiempo
+- [x] Panel de privacidad en tiempo real (trackers bloqueados, ads, cookies, datos ahorrados por sitio)
+- [x] Historial visual con línea de tiempo (agrupado por Hoy / Ayer / fecha)
 
 ---
 
