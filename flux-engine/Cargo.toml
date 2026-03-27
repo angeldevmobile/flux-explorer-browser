@@ -2,7 +2,7 @@
 name = "orion-engine"
 version = "0.1.0"
 edition = "2021"
-description = "Orion minimal HTML rendering engine"
+description = "Flux browser rendering engine"
 
 [dependencies]
 # smallvec: evita heap allocation para colecciones pequeñas (atributos, hijos)
@@ -28,15 +28,15 @@ rquickjs   = { version = "0.6", features = ["loader"] }
 # ── Fase 6: Seguridad (fetch síncrono para JS) ────────────────
 
 [[bin]]
-name = "orion-engine"
+name = "flux-engine"
 path = "src/main.rs"
 
 [[bin]]
-name = "orion-browser"
+name = "flux-browser"
 path = "src/bin/browser.rs"
 
 [[bin]]
-name = "orion-render"
+name = "flux-render"
 path = "src/bin/render.rs"
 
 [lib]

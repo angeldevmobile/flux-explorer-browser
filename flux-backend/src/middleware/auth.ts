@@ -25,3 +25,24 @@ export const authMiddleware = (
     res.status(401).json({ error: "Token inválido o expirado" });
   }
 };
+
+/**
+ * Middleware opcional — si hay token válido lo usa, si no continúa sin userId.
+ * Permite personalizar resultados sin bloquear usuarios no autenticados.
+ */
+export const optionalAuthMiddleware = (
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (token) {
+      const { userId } = AuthService.verifyToken(token);
+      req.userId = userId;
+    }
+  } catch {
+    // Token inválido — ignorar y continuar sin userId
+  }
+  next();
+};

@@ -108,6 +108,8 @@ enum UserEvent {
     PermissionRequested { origin: String, kind: String },
     /// Abrir/cerrar el panel lateral de IA (ancho en píxeles lógicos, 0 = cerrado).
     AiPanelWidth(f64),
+    /// Recargar la UI del chrome cuando localhost:8082 finalmente responde.
+    ReloadChrome,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -805,7 +807,7 @@ fn main() {
 
     // ── 3. Ventana nativa ─────────────────────────────────────────────────
     let window = WindowBuilder::new()
-        .with_title("Orion Browser")
+        .with_title("Flux Browser")
         .with_inner_size(LogicalSize::new(1400u32, 900u32))
         .with_min_inner_size(LogicalSize::new(800u32, 600u32))
         .with_window_icon(load_icon())
@@ -968,8 +970,30 @@ fn main() {
             position: LogicalPosition::new(0.0, 0.0).into(),
             size: LogicalSize::new(init_w, init_h).into(),
         })
+        // Si la UI no carga (Vite no está corriendo), reintentar cada segundo hasta 30 intentos.
+        // Esto evita la pantalla negra cuando cargo run se lanza antes de npm run dev.
         .build_as_child(&window)
         .expect("No se pudo crear el WebView del chrome");
+
+    // ── Retry automático de la UI React ──────────────────────────────────────
+    // Si localhost:8082 no responde al abrirse (Vite aún no corre), un hilo de fondo
+    // sondea la conexión TCP y manda ReloadChrome cuando el servidor esté disponible.
+    {
+        let proxy_ui = event_loop.create_proxy();
+        std::thread::spawn(move || {
+            use std::net::TcpStream;
+            // Espera hasta 60 s en intervalos de 1 s
+            for attempt in 1u32..=60 {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                if TcpStream::connect("127.0.0.1:8082").is_ok() {
+                    println!("[orion-browser] UI disponible en {UI_URL} (intento {attempt})");
+                    let _ = proxy_ui.send_event(UserEvent::ReloadChrome);
+                    return;
+                }
+            }
+            println!("[orion-browser] UI no disponible después de 60 s — ejecuta `npm run dev`");
+        });
+    }
 
     println!("[orion-browser] Ventana abierta — chrome: {UI_URL}");
 
@@ -998,6 +1022,14 @@ fn main() {
                 let scale = window.scale_factor();
                 let w  = phys_size.width  as f64 / scale;
                 let h  = phys_size.height as f64 / scale;
+
+                // Ignorar eventos espurios de inicialización en Windows (frameless+transparent
+                // dispara un Resized con tamaño casi nulo antes de llegar al tamaño real).
+                // WebView2 falla al crear su render surface en dimensiones tan pequeñas.
+                if w < 200.0 || h < 100.0 {
+                    return;
+                }
+
                 let ch = chrome_h.get();
                 let pw = ai_panel_w.get();
 
@@ -1047,6 +1079,12 @@ fn main() {
                     KeyCode::KeyL if ctrl => { let _ = proxy_kbd.send_event(UserEvent::FocusAddressBar); }
                     _ => {}
                 }
+            }
+
+            // ── Reload de la UI React cuando 8082 responde ────────────────
+            Event::UserEvent(UserEvent::ReloadChrome) => {
+                let _ = chrome_view.load_url(UI_URL);
+                println!("[orion-browser] UI recargada → {UI_URL}");
             }
 
             // ── Controles de ventana ───────────────────────────────────────

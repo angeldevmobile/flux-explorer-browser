@@ -4,7 +4,7 @@
   "version": "1.0.0-beta.1",
   "type": "module",
   "author": "Gabriel Zapata",
-  "description": "Orion Browser — navegador moderno con motor de renderizado propio en Rust",
+  "description": "Flux Browser — navegador moderno con motor de renderizado propio en Rust",
   "scripts": {
     "dev": "vite --port 8082",
     "build": "vite build",

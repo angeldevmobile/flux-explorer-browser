@@ -8,7 +8,7 @@
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0--beta.3-cyan)](https://github.com)
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.1-cyan)](https://github.com)
 
 [Arquitectura](#arquitectura) · [Motor Rust](#flux-engine) · [Búsqueda](#flux-search) · [Backend](#flux-backend) · [Instalación](#instalación-beta-pública) · [Roadmap](#roadmap)
 
@@ -18,11 +18,33 @@
 
 ## ¿Qué es Flux?
 
-Flux es un navegador web construido desde cero en Rust. Su núcleo — **flux-engine** — implementa un pipeline completo de renderizado HTML/CSS, un motor JavaScript ligero basado en QuickJS, y una capa de seguridad propia. La superficie de renderizado usa el WebView nativo del sistema operativo (WebView2 en Windows, WebKit en macOS/Linux) vía `wry` — la misma base de Tauri.
+Flux es un navegador web construido desde cero en Rust. Su núcleo — **flux-engine** — implementa un pipeline completo de renderizado HTML/CSS, un motor JavaScript ligero basado en QuickJS, y una capa de seguridad propia.
 
-> El engine es el cerebro. El WebView es la pantalla.
+### El motor propio existe y funciona hoy
 
-La búsqueda corre sobre **Flux Search**: agrega resultados de múltiples fuentes via SearXNG self-hosted y los re-rankea con BM25 propio. Sin Google. Sin Bing. Sin dependencias externas visibles.
+El pipeline de renderizado está construido y operativo:
+
+```
+HTML → Tokenizer → DOM → CSS Cascade → Layout → Display List → FluxSoftRenderer → píxeles
+```
+
+Cada paso es código Rust propio. El **FluxSoftRenderer** es el último paso del motor: toma el display list y pinta píxeles reales en un buffer de memoria (XRGB8888). Puedes verlo funcionando ahora mismo:
+
+```bash
+cargo run --bin flux-render   # abre una ventana con el motor propio renderizando
+```
+
+### ¿Por qué las páginas web todavía pasan por WebView2?
+
+El motor existe. Lo que aún falta es **el cable que lo conecta al browser**: cuando el usuario navega a `https://ejemplo.com`, en lugar de pasarle la URL a WebView2, pasársela al pipeline propio y mostrar los píxeles resultantes en la ventana del browser.
+
+Ese paso es el siguiente en el roadmap. Mientras tanto, WebView2 actúa como superficie provisional — garantiza compatibilidad total con la web moderna mientras el motor propio madura.
+
+> El motor es el cerebro. WebView2 es la pantalla provisional, no el motor.
+
+Es la misma estrategia que usó Brave al arrancar: primero construyes el valor real (privacidad, búsqueda, seguridad, UX), luego conectas tu propio renderer cuando está listo. Cuando ese cable esté hecho, Flux será uno de los pocos browsers con motor de píxeles escrito en Rust — sin Blink, sin WebKit, sin código C++.
+
+La búsqueda corre sobre **Flux Search**: agrega resultados de múltiples fuentes via SearXNG self-hosted y los re-rankea con BM25 propio. Sin Google. Sin Bing. Sin dependencias externas.
 
 ---
 
@@ -136,15 +158,14 @@ URL
 
 | Fase | Componente | Estado |
 |---|---|---|
-| 1 | Tokenizer zero-copy + Parser DOM arena | ✅ |
-| 2 | Style resolution + UA stylesheet completo | ✅ |
-| 3 | Inline layout + word wrapping + text-align | ✅ |
-| 4 | OrionSoftRenderer — pixel buffer real con fontdue | ✅ |
-| 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | ✅ |
-| 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | ✅ |
-| 7 | Descargador de medios — yt-dlp bundleado con progreso en tiempo real | ✅ |
-| 8 | Mute por pestaña — control de audio vía IPC | ✅ |
-
+| 1 | Tokenizer zero-copy + Parser DOM arena | 
+| 2 | Style resolution + UA stylesheet completo | 
+| 3 | Inline layout + word wrapping + text-align | 
+| 4 | OrionSoftRenderer — pixel buffer real con fontdue | 
+| 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | 
+| 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | 
+| 7 | Descargador de medios — yt-dlp bundleado con progreso en tiempo real | 
+| 8 | Mute por pestaña — control de audio vía IPC | 
 ### JavaScript (Fase 5)
 
 Motor JS ligero basado en **rquickjs** (QuickJS embebido en Rust, ~10 MB vs ~100 MB de V8).
@@ -245,7 +266,7 @@ cd flux-engine
 cargo test
 
 # Demo en consola (display list)
-cargo run
+cargo run --bin flux-engine
 
 # Renderer de píxeles — abre ventana con softbuffer
 cargo run --bin flux-render
@@ -365,11 +386,15 @@ Chrome del navegador construido en React + Tailwind. Rodea el contenido con la i
 
 | Componente | Descripción |
 |---|---|
-| `OrionAISidePanel` | Panel lateral flotante de IA — chat Gemini contextual con URL y título de página actual, renderizado Markdown, animación de escritura |
+| `FluxAISidePanel` | Panel lateral flotante de IA — chat Gemini contextual con URL y título de página actual, renderizado Markdown, animación de escritura |
 | `NewTabPage` | Nueva pestaña con widget de clima (wttr.in), feed de noticias RSS, tendencias de Google y búsqueda por voz |
 | `MediaDownloaderModal` | Descargador de medios con yt-dlp bundleado — progreso en tiempo real (%, velocidad, bytes) |
 | `FavoritesPanel` | Panel de favoritos/bookmarks integrado |
+| `SecurityPanel` | Panel de seguridad por sitio — estado HTTPS, trackers detectados, tiempo de carga |
 | `DevToolsSection` | Sección de herramientas de desarrollador en el menú |
+| `WelcomeOnboarding` | Onboarding de bienvenida al primer arranque |
+| `OCRModal` | Extracción de texto desde imágenes via Gemini Vision |
+| `SongDetectorModal` | Detección de canción activa en la página via Gemini |
 
 ---
 
@@ -412,7 +437,7 @@ cd flux-browser
 
 # 4. Compilar el browser (incluye ambos exe automáticamente)
 cd flux-engine
-cargo build --release --bin orion-browser
+cargo build --release --bin flux-browser
 
 # El resultado está en flux-engine/target/release/
 # Copiar a una carpeta de distribución:
@@ -468,6 +493,7 @@ docker compose up -d
 - [x] JS sandbox — límites de heap/stack por tab
 - [x] yt-dlp bundleado — sin instalación manual para el usuario
 - [x] flux-backend.exe como sidecar — arranca y cierra con el browser
+- [x] Sistema de permisos nativos (cámara, micrófono, notificaciones) via Rust
 - [ ] Conectar OrionSoftRenderer al content_view de la ventana nativa
 - [ ] Flexbox layout
 - [ ] Imágenes (`<img>` decodificada y pintada en el buffer)
@@ -532,6 +558,15 @@ docker compose up -d
 - [x] Panel de favoritos
 - [x] Herramientas de desarrollador
 - [x] **Servicio de traducción** — Gemini + fallback MyMemory (15 idiomas, sin API key extra)
+- [x] Búsqueda por voz en nueva pestaña
+- [x] OCR — extracción de texto desde imágenes (Gemini Vision)
+- [x] Detección de canciones en página activa (Gemini)
+- [x] Modo privado / incógnito por pestaña
+- [x] Onboarding de bienvenida al primer arranque
+- [x] Sistema de login y registro de usuario
+- [x] Multi-tab con WebView nativo por pestaña (cada tab = WebView2 independiente)
+- [x] Tab discard — libera RAM de pestañas inactivas > 10 min automáticamente
+- [x] Panel de seguridad por sitio (HTTPS, trackers, tiempo de carga)
 - [ ] Panel de privacidad en tiempo real (trackers bloqueados, upgrades HTTPS)
 - [ ] Historial visual con línea de tiempo
 

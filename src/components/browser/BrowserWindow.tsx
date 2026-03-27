@@ -35,6 +35,8 @@ import { useFavorites } from "@/hooks/useFavorite";
 
 export const BrowserWindow = () => {
 	// ── Hooks de estado ──
+	const [privacyMode, setPrivacyMode] = useState(false);
+
 	const {
 		tabs, setTabs, activeTabId, setActiveTabId,
 		loading, loadingTabIds, setTabLoading, isActiveTabLoading,
@@ -80,7 +82,6 @@ export const BrowserWindow = () => {
 	const [viewSourceHtml, setViewSourceHtml] = useState<string | null>(null);
 	const [viewSourceUrl, setViewSourceUrl] = useState("");
 	const [navError, setNavError] = useState<{ url: string; code?: ErrorCode } | null>(null);
-	const [privacyMode, setPrivacyMode] = useState(false);
 	const [readerMode, setReaderMode] = useState(false);
 	const [aiPanelOpen, setAiPanelOpen] = useState(false);
 

@@ -1,7 +1,8 @@
-import { Response, Request } from "express";
+import { Response } from "express";
 import prisma from "../config/prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { searchWeb } from "../services/searxngService";
+import { geminiService } from "../services/geminiService";
 
 const ORION_ENGINE_URL = process.env.ORION_ENGINE_URL || "http://localhost:4000";
 
