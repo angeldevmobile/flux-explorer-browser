@@ -11,8 +11,8 @@
 // ============================================================
 
 use std::sync::Arc;
-use orion_engine::api::{build_router, AppState};
-use orion_engine::fetcher::build_client;
+use flux_engine::api::{build_router, AppState};
+use flux_engine::fetcher::build_client;
 
 #[tokio::main]
 async fn main() {
@@ -26,7 +26,7 @@ async fn main() {
         .await
         .expect("No se pudo bindear el puerto 4000");
 
-    println!("Orion Engine corriendo en http://localhost:4000");
+    println!("Flux Engine corriendo en http://localhost:4000");
     println!("   GET  /health  — estado del engine");
     println!("   POST /process — procesar y rankear URLs");
 

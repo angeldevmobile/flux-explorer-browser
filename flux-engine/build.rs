@@ -8,6 +8,15 @@
 use std::path::PathBuf;
 
 fn main() {
+    // Embeber icono como recurso Windows → taskbar, Alt+Tab, explorador
+    {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("../assets/logo_flux.ico");
+        if let Err(e) = res.compile() {
+            println!("cargo:warning=winres: no se pudo embeber icono: {e}");
+        }
+    }
+
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let bin_dir  = manifest.join("bin");
     let out_dir  = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -15,6 +24,7 @@ fn main() {
     // 1. Declarar cfgs personalizados (evita warnings de check-cfg)
     println!("cargo::rustc-check-cfg=cfg(has_dist)");
     println!("cargo::rustc-check-cfg=cfg(has_backend)");
+    println!("cargo::rustc-check-cfg=cfg(has_ytdlp)");
 
     // OUT_DIR → target/<profile>/
     let profile_dir = out_dir
@@ -55,12 +65,8 @@ fn main() {
     // 3. yt-dlp.exe
     let ytdlp_src = bin_dir.join("yt-dlp.exe");
     if ytdlp_src.exists() {
-        let dst = profile_dir.join("yt-dlp.exe");
-        if let Err(e) = std::fs::copy(&ytdlp_src, &dst) {
-            println!("cargo:warning=No se pudo copiar yt-dlp.exe: {e}");
-        } else {
-            println!("cargo:warning=yt-dlp.exe copiado a {}", dst.display());
-        }
+        println!("cargo:rustc-cfg=has_ytdlp");
+        println!("cargo:warning=yt-dlp.exe embebido en el binario");
         println!("cargo:rerun-if-changed=bin/yt-dlp.exe");
     } else {
         println!(

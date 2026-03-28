@@ -1,3 +1,6 @@
+// Oculta la consola en builds de release (Windows GUI app).
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 // Flux Browser — punto de entrada del navegador nativo.
 //
 // La ventana es un WebView2 de chrome (React UI) encima de uno o más
@@ -21,19 +24,20 @@ use tao::{
 };
 use wry::{Rect, WebViewBuilder};
 use std::sync::Arc;
-use orion_engine::security::{SecurityLayer, UrlDecision};
+use flux_engine::security::{SecurityLayer, UrlDecision};
 
 // UI React embebida — activa solo con: cargo build --release --features bundle-ui
 // Requiere ejecutar `npm run build` antes para generar dist/
 #[cfg(feature = "bundle-ui")]
-use include_dir::{include_dir, Dir};
-#[cfg(feature = "bundle-ui")]
-static DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../dist");
+include!(concat!(env!("OUT_DIR"), "/ui_embed.rs"));
 
 // Backend Node.js compilado embebido — activa solo con: --features bundle-backend
 // Requiere compilar con: cd flux-backend && npx pkg . -o ../flux-engine/bin/flux-backend.exe
 #[cfg(feature = "bundle-backend")]
 static BACKEND_EXE_BYTES: &[u8] = include_bytes!("../../bin/flux-backend.exe");
+
+#[cfg(has_ytdlp)]
+static YTDLP_BYTES: &[u8] = include_bytes!("../../bin/yt-dlp.exe");
 
 static ICON_BYTES: &[u8] = include_bytes!("../../../assets/logo_flux.ico");
 
@@ -115,6 +119,31 @@ fn spawn_embedded_backend() -> Option<std::process::Child> {
             None
         }
     }
+}
+
+/// Extrae yt-dlp embebido a %LOCALAPPDATA%\Flux\ y devuelve su ruta.
+/// Se extrae solo si no existe o si el tamaño cambió (actualización).
+#[cfg(has_ytdlp)]
+fn extract_ytdlp() -> std::path::PathBuf {
+    let app_dir = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("Flux"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("flux"));
+
+    let _ = std::fs::create_dir_all(&app_dir);
+    let ytdlp_path = app_dir.join("yt-dlp.exe");
+
+    let needs_write = !ytdlp_path.exists() || {
+        std::fs::metadata(&ytdlp_path)
+            .map(|m| m.len() != YTDLP_BYTES.len() as u64)
+            .unwrap_or(true)
+    };
+
+    if needs_write {
+        println!("[flux-ytdl] Extrayendo yt-dlp a {}…", ytdlp_path.display());
+        let _ = std::fs::write(&ytdlp_path, YTDLP_BYTES);
+    }
+
+    ytdlp_path
 }
 
 /// Altura de reserva hasta que React mida y envíe el valor real vía IPC.
@@ -437,7 +466,17 @@ fn flux_error_page(kind: &str, url: &str) -> String {
 ///   2. En <raíz_proyecto>/orion-engine/bin/  (desarrollo)
 ///   3. En el PATH del sistema  (instalación manual del usuario)
 fn find_ytdlp() -> std::path::PathBuf {
-    // 1. Junto al ejecutable de Orion (yt-dlp.exe en la misma carpeta)
+    // 1. Embebido: extraer a %LOCALAPPDATA%\Flux\ y usar desde ahí
+    #[cfg(has_ytdlp)]
+    {
+        let path = extract_ytdlp();
+        if path.exists() {
+            println!("[flux-ytdl] yt-dlp embebido en: {}", path.display());
+            return path;
+        }
+    }
+
+    // 2. Junto al ejecutable (fallback desarrollo)
     if let Ok(exe) = std::env::current_exe() {
         let bundled = exe
             .parent()
@@ -879,11 +918,11 @@ fn main() {
         };
 
         rt.block_on(async {
-            let state = Arc::new(orion_engine::api::AppState {
-                client: orion_engine::fetcher::build_client(),
+            let state = Arc::new(flux_engine::api::AppState {
+                client: flux_engine::fetcher::build_client(),
             });
 
-            let app = orion_engine::api::build_router(state);
+            let app = flux_engine::api::build_router(state);
 
             let addr = format!("0.0.0.0:{ENGINE_PORT}");
             let listener = match tokio::net::TcpListener::bind(&addr).await {
@@ -1596,9 +1635,9 @@ fn main() {
                                 size: LogicalSize::new(w, ch).into(),
                             });
                             let kind = match reason {
-                                orion_engine::security::BlockReason::AdTracker    => "blocked_tracker",
-                                orion_engine::security::BlockReason::MixedContent => "blocked_security",
-                                orion_engine::security::BlockReason::CspViolation => "blocked_security",
+                                flux_engine::security::BlockReason::AdTracker    => "blocked_tracker",
+                                flux_engine::security::BlockReason::MixedContent => "blocked_security",
+                                flux_engine::security::BlockReason::CspViolation => "blocked_security",
                             };
                             if let Some(view) = content_views.borrow().get(&native_id) {
                                 let _ = view.set_bounds(Rect {

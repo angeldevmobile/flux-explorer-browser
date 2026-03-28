@@ -18,7 +18,7 @@ pub struct ConsoleRenderer;
 impl ConsoleRenderer {
     pub fn render(commands: &[DisplayCommand]) {
         println!("\n╔══════════════════════════════════════╗");
-        println!("║       ORION ENGINE — RENDER OUTPUT   ║");
+        println!("║       FLUX ENGINE — RENDER OUTPUT   ║");
         println!("╚══════════════════════════════════════╝\n");
 
         for cmd in commands {

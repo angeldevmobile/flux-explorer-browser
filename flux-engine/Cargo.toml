@@ -1,5 +1,5 @@
 [package]
-name = "orion-engine"
+name = "flux-engine"
 version = "0.1.0"
 edition = "2021"
 description = "Flux browser rendering engine"
@@ -37,6 +37,10 @@ fontdue    = "0.8"
 rquickjs   = { version = "0.6", features = ["loader"] }
 # ── Fase 6: Seguridad (fetch síncrono para JS) ────────────────
 
+[build-dependencies]
+# Embeber icono como recurso Windows (.exe icon, taskbar, Alt+Tab)
+winres = "0.1"
+
 [[bin]]
 name = "flux-engine"
 path = "src/main.rs"
@@ -50,7 +54,7 @@ name = "flux-render"
 path = "src/bin/render.rs"
 
 [lib]
-name = "orion_engine"
+name = "flux_engine"
 path = "src/lib.rs"
 
 [profile.release]
