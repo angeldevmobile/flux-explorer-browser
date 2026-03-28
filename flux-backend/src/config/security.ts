@@ -3,9 +3,12 @@ import helmet from "helmet";
 import { Express } from "express";
 import { env } from "./env";
 
-// Orígenes permitidos: solo el valor de FRONTEND_URL.
-// En desarrollo se aceptan las URLs locales típicas.
-const allowedOrigins: string[] = [env.FRONTEND_URL];
+// Orígenes permitidos: FRONTEND_URL del .env más los orígenes fijos.
+// "flux://localhost" es el custom protocol que usa flux-browser.exe en producción.
+const allowedOrigins: string[] = [
+  env.FRONTEND_URL,
+  "flux://localhost",   // producción: custom protocol del motor Rust
+];
 if (env.NODE_ENV === "development") {
   allowedOrigins.push(
     "http://localhost:8080",

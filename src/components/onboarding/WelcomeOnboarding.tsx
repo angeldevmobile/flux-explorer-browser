@@ -91,7 +91,7 @@ function MockAIPanel({ visible }: { visible: boolean }) {
         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
           <Bot className="w-4 h-4 text-white" />
         </div>
-        <span className="text-sm font-semibold text-slate-200">Orion AI</span>
+        <span className="text-sm font-semibold text-slate-200">Flux AI</span>
       </div>
       <div className="space-y-2">
         {["Resumir página", "Traducir", "Buscar con IA"].map((item, i) => (
@@ -342,10 +342,10 @@ export function WelcomeOnboarding({ onDone }: { onDone: () => void }) {
     {
       id: 3,
       icon: <Bot className="w-5 h-5" />,
-      title: "Orion IA integrada",
+      title: "Flux IA integrada",
       subtitle: "Tu copiloto de navegación",
       description:
-        "Activa Orion AI para resumir páginas, traducir, hacer preguntas sobre el contenido o buscar con inteligencia artificial.",
+        "Activa Flux AI para resumir páginas, traducir, hacer preguntas sobre el contenido o buscar con inteligencia artificial.",
       highlight: "ai",
       cursorTarget: { x: 88, y: 60 },
       mockUI: <MockAIPanel visible />,
@@ -378,7 +378,7 @@ export function WelcomeOnboarding({ onDone }: { onDone: () => void }) {
       title: "¡Listo para explorar!",
       subtitle: "Todo configurado",
       description:
-        "Flux está listo. Empieza a navegar, activa el modo lector, usa Orion AI o personaliza tu experiencia desde Configuración.",
+        "Flux está listo. Empieza a navegar, activa el modo lector, usa Flux AI o personaliza tu experiencia desde Configuración.",
       highlight: null,
       cursorTarget: null,
       mockUI: (

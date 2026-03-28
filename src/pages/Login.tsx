@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import TermsOfService from "@/components/politics/Terms";
 import PrivacyPolicy from "@/components/politics/Privacity";
@@ -183,7 +184,8 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, enterGuestMode } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
@@ -320,7 +322,7 @@ export default function Login() {
               <div className="relative group mb-3">
                 <div className="absolute -inset-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 opacity-20 blur-lg group-hover:opacity-40 transition-opacity duration-500 animate-pulse" />
                 <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 via-cyan-400 to-teal-400 flex items-center justify-center shadow-lg shadow-cyan-500/25 rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                  <span className="text-lg font-black text-white tracking-tighter">O</span>
+                  <span className="text-lg font-black text-white tracking-tighter">F</span>
                 </div>
               </div>
 
@@ -388,7 +390,7 @@ export default function Login() {
                       </div>
                       <input
                         type="text"
-                        placeholder="orion_user"
+                        placeholder="flux_user"
                         value={username}
                         onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, "_"))}
                         className={`${getInputClass(
@@ -695,7 +697,7 @@ export default function Login() {
               </p>
 
               <button
-                onClick={() => { window.location.href = "/browser"; }}
+                onClick={() => { enterGuestMode(); navigate("/browser"); }}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-400 transition-all duration-200 group"
               >
                 <IconGlobe />

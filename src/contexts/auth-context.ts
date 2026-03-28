@@ -11,11 +11,13 @@ export interface User {
 export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isGuest: boolean;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: Partial<User>) => void;
+  enterGuestMode: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

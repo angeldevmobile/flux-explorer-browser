@@ -23,6 +23,18 @@ use wry::{Rect, WebViewBuilder};
 use std::sync::Arc;
 use orion_engine::security::{SecurityLayer, UrlDecision};
 
+// UI React embebida — activa solo con: cargo build --release --features bundle-ui
+// Requiere ejecutar `npm run build` antes para generar dist/
+#[cfg(feature = "bundle-ui")]
+use include_dir::{include_dir, Dir};
+#[cfg(feature = "bundle-ui")]
+static DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../dist");
+
+// Backend Node.js compilado embebido — activa solo con: --features bundle-backend
+// Requiere compilar con: cd flux-backend && npx pkg . -o ../flux-engine/bin/flux-backend.exe
+#[cfg(feature = "bundle-backend")]
+static BACKEND_EXE_BYTES: &[u8] = include_bytes!("../../bin/flux-backend.exe");
+
 static ICON_BYTES: &[u8] = include_bytes!("../../../assets/logo_flux.ico");
 
 fn load_icon() -> Option<Icon> {
@@ -31,11 +43,79 @@ fn load_icon() -> Option<Icon> {
     Icon::from_rgba(img.into_raw(), w, h).ok()
 }
 
-/// URL de la UI React (chrome del browser)
-const UI_URL: &str = "http://localhost:8082";
-
 /// Puerto del engine HTTP (búsqueda + ranking)
 const ENGINE_PORT: u16 = 4000;
+
+/// URL de la UI en desarrollo (Vite dev server)
+const UI_URL_DEV: &str = "http://localhost:8082";
+/// URL de la UI en producción (custom protocol con UI embebida)
+const UI_URL_PROD: &str = "flux://localhost/";
+
+/// Devuelve el MIME type correcto para una extensión de archivo.
+fn mime_for_ext(ext: &str) -> &'static str {
+    match ext {
+        "html"            => "text/html; charset=utf-8",
+        "js" | "mjs"      => "application/javascript; charset=utf-8",
+        "css"             => "text/css; charset=utf-8",
+        "json" | "map"    => "application/json",
+        "png"             => "image/png",
+        "jpg" | "jpeg"    => "image/jpeg",
+        "gif"             => "image/gif",
+        "svg"             => "image/svg+xml",
+        "ico"             => "image/x-icon",
+        "webp"            => "image/webp",
+        "woff"            => "font/woff",
+        "woff2"           => "font/woff2",
+        "ttf"             => "font/ttf",
+        "otf"             => "font/otf",
+        _                 => "application/octet-stream",
+    }
+}
+
+/// Extrae el backend embebido a %LOCALAPPDATA%\Flux\ y lo lanza.
+/// Se extrae solo si no existe o si el tamaño cambió (actualización).
+#[cfg(feature = "bundle-backend")]
+fn spawn_embedded_backend() -> Option<std::process::Child> {
+    let app_dir = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("Flux"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("flux"));
+
+    if let Err(e) = std::fs::create_dir_all(&app_dir) {
+        println!("[flux-backend] No se pudo crear {}: {e}", app_dir.display());
+        return None;
+    }
+
+    let backend_path = app_dir.join("flux-backend.exe");
+    let needs_write = !backend_path.exists() || {
+        std::fs::metadata(&backend_path)
+            .map(|m| m.len() != BACKEND_EXE_BYTES.len() as u64)
+            .unwrap_or(true)
+    };
+
+    if needs_write {
+        println!("[flux-backend] Extrayendo a {}…", backend_path.display());
+        if let Err(e) = std::fs::write(&backend_path, BACKEND_EXE_BYTES) {
+            println!("[flux-backend] Error al extraer: {e}");
+            return None;
+        }
+    }
+
+    match std::process::Command::new(&backend_path)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(child) => {
+            println!("[flux-backend] Iniciado desde {} (PID {})", backend_path.display(), child.id());
+            Some(child)
+        }
+        Err(e) => {
+            println!("[flux-backend] No se pudo iniciar: {e}");
+            None
+        }
+    }
+}
 
 /// Altura de reserva hasta que React mida y envíe el valor real vía IPC.
 const CHROME_HEIGHT: f64 = 110.0;
@@ -824,12 +904,30 @@ fn main() {
 
     std::thread::sleep(std::time::Duration::from_millis(300));
 
-    // ── 2. Backend Node.js como sidecar ───────────────────────────────────
+    // ── 2. Backend Node.js ────────────────────────────────────────────────────
+    // --features bundle-backend: backend embebido → extrae a %LOCALAPPDATA%\Flux\ y lanza.
+    // Sin feature: busca flux-backend.exe en rutas conocidas (dev).
+    #[cfg(feature = "bundle-backend")]
+    let mut backend_process = spawn_embedded_backend();
+    #[cfg(not(feature = "bundle-backend"))]
     let mut backend_process = spawn_backend();
-    // Dar tiempo al backend para estar listo antes de que el UI lo necesite
+
     if backend_process.is_some() {
         std::thread::sleep(std::time::Duration::from_millis(1500));
     }
+
+    // ── 3. Modo UI ────────────────────────────────────────────────────────────
+    // --features bundle-ui: UI embebida → flux://localhost/
+    // Sin feature: Vite dev server → http://localhost:8082
+    #[cfg(feature = "bundle-ui")]
+    let ui_url: &str = UI_URL_PROD;
+    #[cfg(not(feature = "bundle-ui"))]
+    let ui_url: &str = UI_URL_DEV;
+
+    #[cfg(feature = "bundle-ui")]
+    println!("[flux-ui] Modo produccion — UI embebida (flux://)");
+    #[cfg(not(feature = "bundle-ui"))]
+    println!("[flux-ui] Modo desarrollo — esperando Vite en localhost:8082");
 
     // ── Permission store: (origin, kind) → allow/deny ────────────────────────
     // Persiste durante la sesión. Primera petición siempre se deniega y se
@@ -921,9 +1019,43 @@ fn main() {
     // WebView del chrome (React UI) — capa superior
     let permissions_ipc = permissions.clone();
 
-    let chrome_view = WebViewBuilder::new()
-        .with_url(UI_URL)
-        .with_transparent(true)
+    // Construir el chrome WebView.
+    // Con bundle-ui: registra el custom protocol "flux://" que sirve la UI embebida.
+    // Sin bundle-ui: carga directamente desde localhost:8082 (Vite dev server).
+    let chrome_base = WebViewBuilder::new()
+        .with_url(ui_url)
+        .with_transparent(true);
+
+    #[cfg(feature = "bundle-ui")]
+    let chrome_base = chrome_base.with_custom_protocol("flux".into(), |_id, request| {
+        let path_str = request.uri().path().trim_start_matches('/');
+        let path_str = if path_str.is_empty() { "index.html" } else { path_str };
+        let ext = std::path::Path::new(path_str)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+        let (bytes, mime): (&[u8], &str) = match DIST.get_file(path_str) {
+            Some(f) => {
+                let e = f.path().extension().and_then(|e| e.to_str()).unwrap_or("");
+                (f.contents(), mime_for_ext(e))
+            }
+            // SPA fallback: ruta desconocida → index.html para React Router
+            None => match DIST.get_file("index.html") {
+                Some(f) => (f.contents(), "text/html; charset=utf-8"),
+                None    => (b"Not Found", "text/plain"),
+            },
+        };
+        wry::http::Response::builder()
+            .header("Content-Type", mime)
+            .header("Access-Control-Allow-Origin", "*")
+            .body(std::borrow::Cow::Borrowed(bytes))
+            .unwrap_or_else(|_| wry::http::Response::builder()
+                .status(500)
+                .body(std::borrow::Cow::Borrowed(b"error" as &[u8]))
+                .expect("fallback"))
+    });
+
+    let chrome_view = chrome_base
         .with_ipc_handler(move |msg| {
             let body = msg.body().to_string();
             println!("[flux-browser] IPC recibido: {body}");
@@ -1051,26 +1183,26 @@ fn main() {
         .build_as_child(&window)
         .expect("No se pudo crear el WebView del chrome");
 
-    // Si Vite aún no está listo (cargo run antes de npm run dev), un hilo
-    // sondea 127.0.0.1:8082 y recarga el chrome cuando el servidor responde.
+    // En modo dev (sin dist/), sondear localhost:8082 hasta que Vite esté listo.
+    // En producción no hace falta: flux:// sirve los archivos directamente.
+    #[cfg(not(feature = "bundle-ui"))]
     {
         let proxy_ui = event_loop.create_proxy();
         std::thread::spawn(move || {
             use std::net::TcpStream;
-            // Espera hasta 60 s en intervalos de 1 s
             for attempt in 1u32..=60 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if TcpStream::connect("127.0.0.1:8082").is_ok() {
-                    println!("[flux-browser] UI disponible en {UI_URL} (intento {attempt})");
+                    println!("[flux-browser] Vite disponible (intento {attempt}) → recargando chrome");
                     let _ = proxy_ui.send_event(UserEvent::ReloadChrome);
                     return;
                 }
             }
-            println!("[flux-browser] UI no disponible después de 60 s — ejecuta `npm run dev`");
+            println!("[flux-browser] Vite no disponible después de 60 s — ejecuta `npm run dev`");
         });
     }
 
-    println!("[flux-browser] Ventana abierta — chrome: {UI_URL}");
+    println!("[flux-browser] Ventana abierta — chrome: {ui_url}");
 
     let chrome_full  = std::cell::Cell::new(true);
     let chrome_h     = std::cell::Cell::new(CHROME_HEIGHT);
@@ -1153,8 +1285,8 @@ fn main() {
             }
 
             Event::UserEvent(UserEvent::ReloadChrome) => {
-                let _ = chrome_view.load_url(UI_URL);
-                println!("[flux-browser] UI recargada → {UI_URL}");
+                let _ = chrome_view.load_url(ui_url);
+                println!("[flux-browser] UI recargada → {ui_url}");
             }
 
             Event::UserEvent(UserEvent::WindowMinimize) => { window.set_minimized(true); }

@@ -166,49 +166,6 @@
         </table>
       </div>
 
-      <!-- Decisiones de memoria -->
-      <h3 class="text-white font-bold mb-3">Decisiones de memoria</h3>
-      <div class="glass-card overflow-hidden">
-        <table class="flux-table">
-          <thead><tr><th>Técnica</th><th>Beneficio</th></tr></thead>
-          <tbody>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">&amp;'a str</code> en tokens y DOM</td><td>0 copias del HTML fuente en memoria</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">Vec&lt;Node&gt;</code> arena + NodeId(usize)</td><td>Sin Box/Rc, cache-friendly, sin fragmentación de heap</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">SmallVec&lt;[Attr; 4]&gt;</code></td><td>Atributos en stack si son ≤ 4 — sin heap allocation</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">ComputedStyle</code> plano</td><td>Sin heap, cache-line friendly</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">LayoutBox</code> Vec contiguo</td><td>Sin overhead por nodo, iteración eficiente</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- IPC -->
-    <section id="ipc">
-      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
-        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;justify-content:center;"><svg style="width:18px;height:18px;stroke:#06b6d4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></span>
-        Referencia IPC
-      </h2>
-      <p class="text-slate-400 text-sm mb-5">Comunicación bidireccional entre la UI React y el motor Rust usando wry IPC. La UI envía comandos, el motor responde con eventos.</p>
-      <div class="glass-card overflow-hidden">
-        <table class="flux-table">
-          <thead><tr><th>Comando IPC</th><th>Dirección</th><th>Descripción</th></tr></thead>
-          <tbody>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">navigate</code></td><td>UI → Rust</td><td>Navegar a una URL en el content_view</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">reload</code></td><td>UI → Rust</td><td>Recargar la página actual</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">go_back / go_forward</code></td><td>UI → Rust</td><td>Historial de navegación del WebView</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">zoom_in / zoom_out / zoom_reset</code></td><td>UI → Rust</td><td>Control de zoom de la página</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">minimize / maximize / close</code></td><td>UI → Rust</td><td>Control de la ventana nativa</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">chrome_height</code></td><td>UI → Rust</td><td>Ajuste dinámico de la altura del chrome</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">mute_tab</code></td><td>UI → Rust</td><td>Silenciar / activar audio de una pestaña</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">download_media</code></td><td>UI → Rust</td><td>Iniciar descarga con yt-dlp</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">download_progress</code></td><td>Rust → UI</td><td>Porcentaje, velocidad y bytes de la descarga activa</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">permission_request</code></td><td>Rust → UI</td><td>Solicitud de permiso (cámara, mic, geolocalización)</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">permission_response</code></td><td>UI → Rust</td><td>Respuesta del usuario al diálogo de permiso</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">url_changed</code></td><td>Rust → UI</td><td>La URL del content_view cambió (actualiza la barra)</td></tr>
-            <tr><td><code style="font-size:12px;color:#06b6d4;">page_title</code></td><td>Rust → UI</td><td>Título de la página cargada</td></tr>
-          </tbody>
-        </table>
-      </div>
     </section>
 
     <!-- Rust vs C++ -->

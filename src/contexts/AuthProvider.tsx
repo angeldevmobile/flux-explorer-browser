@@ -3,8 +3,11 @@ import { authService } from "@/services/api";
 import { AuthContext } from "./auth-context";
 import type { User } from "./auth-context";
 
+const GUEST_KEY = "flux_guest_mode";
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isGuest, setIsGuest] = useState(() => localStorage.getItem(GUEST_KEY) === "1");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,24 +46,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     authService.logout();
+    localStorage.removeItem(GUEST_KEY);
     setUser(null);
+    setIsGuest(false);
   }, []);
 
   const updateUser = useCallback((data: Partial<User>) => {
     setUser((prev) => (prev ? { ...prev, ...data } : null));
   }, []);
 
+  const enterGuestMode = useCallback(() => {
+    localStorage.setItem(GUEST_KEY, "1");
+    setIsGuest(true);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: !!user,
+      isGuest,
       loading,
       login,
       register,
       logout,
       updateUser,
+      enterGuestMode,
     }),
-    [user, loading, login, register, logout, updateUser]
+    [user, isGuest, loading, login, register, logout, updateUser, enterGuestMode]
   );
 
   return (
