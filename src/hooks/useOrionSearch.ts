@@ -8,7 +8,7 @@ export interface OrionResult {
   thumbnail: string;
 }
 
-export function useOrionSearch(query: string) {
+export function useOrionSearch(query: string, category = "general") {
   const [results, setResults] = useState<OrionResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,11 +17,11 @@ export function useOrionSearch(query: string) {
   const [maxPage, setMaxPage] = useState(1);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Reset al cambiar la query
+  // Reset al cambiar la query o categoría
   useEffect(() => {
     setPage(1);
     setMaxPage(1);
-  }, [query]);
+  }, [query, category]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -37,7 +37,7 @@ export function useOrionSearch(query: string) {
     setError(null);
 
     fetch(
-      `http://localhost:3000/api/search/web?q=${encodeURIComponent(query)}&page=${page}`,
+      `http://localhost:3000/api/search/web?q=${encodeURIComponent(query)}&page=${page}&category=${category}`,
       { signal: abortRef.current.signal }
     )
       .then((res) => res.json())
@@ -58,7 +58,7 @@ export function useOrionSearch(query: string) {
       });
 
     return () => abortRef.current?.abort();
-  }, [query, page]);
+  }, [query, page, category]);
 
   const nextPage = () => setPage((p) => p + 1);
   const prevPage = () => setPage((p) => Math.max(1, p - 1));

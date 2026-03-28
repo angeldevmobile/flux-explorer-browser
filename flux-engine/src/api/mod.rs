@@ -167,6 +167,84 @@ async fn render_page(
     }
 }
 
+/// GET /image?url= — proxy de imágenes sin Referer (bypass hotlink protection)
+/// Usa el Client de reqwest ya configurado, zero-copy con bytes::Bytes,
+/// y caché de 24h en el cliente. Mejor que Node.js para usuarios concurrentes
+/// porque Tokio usa threads reales y no hay GC.
+async fn proxy_image(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
+    let url = match params.get("url") {
+        Some(u) if !u.is_empty() => u.clone(),
+        _ => {
+            return Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from("Falta el parámetro url"))
+                .unwrap();
+        }
+    };
+
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from("URL invalida"))
+            .unwrap();
+    }
+
+    // Extraer el origen de la URL para usarlo como Referer.
+    // Muchos CDNs (wixmp, elespanol, etc.) verifican que el Referer
+    // provenga del mismo dominio — esto les hace creer que la imagen
+    // se carga desde su propia web.
+    let referer = {
+        let scheme_end = url.find("://").map(|i| i + 3).unwrap_or(0);
+        let host_end = url[scheme_end..]
+            .find('/')
+            .map(|i| scheme_end + i)
+            .unwrap_or(url.len());
+        format!("{}/", &url[..host_end])
+    };
+
+    let result = state.client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        .header("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+        .header("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+        .header("Referer", referer)
+        .send()
+        .await;
+
+    match result {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let content_type = resp
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("image/jpeg")
+                .to_string();
+
+            match resp.bytes().await {
+                Ok(bytes) => Response::builder()
+                    .status(status)
+                    .header(header::CONTENT_TYPE, content_type)
+                    .header("Cache-Control", "public, max-age=86400")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(Body::from(bytes))
+                    .unwrap(),
+                Err(_) => Response::builder()
+                    .status(StatusCode::BAD_GATEWAY)
+                    .body(Body::from("Error leyendo bytes de imagen"))
+                    .unwrap(),
+            }
+        }
+        Err(_) => Response::builder()
+            .status(StatusCode::BAD_GATEWAY)
+            .body(Body::from("Error conectando con el servidor de imagen"))
+            .unwrap(),
+    }
+}
+
 /// GET /health — verificar que el engine está vivo
 async fn health() -> impl IntoResponse {
     Json(serde_json::json!({
@@ -179,7 +257,10 @@ async fn health() -> impl IntoResponse {
 /// Construye el router axum con todos los endpoints.
 pub fn build_router(state: Arc<AppState>) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+        .allow_origin([
+            "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+            "http://localhost:8082".parse::<HeaderValue>().unwrap(),
+        ])
         .allow_methods([Method::GET, Method::POST])
         .allow_headers(Any);
 
@@ -187,6 +268,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/health", get(health))
         .route("/process", post(process))
         .route("/render", get(render_page))
+        .route("/image", get(proxy_image))
         .layer(cors)
         .with_state(state)
 }

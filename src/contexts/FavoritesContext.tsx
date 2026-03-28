@@ -1,6 +1,7 @@
-import { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
-import { favoriteService, authService } from "@/services/api";
+import { useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { favoriteService } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   FavoritesContext,
   extractApiError,
@@ -11,9 +12,10 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!authService.isAuthenticated()) return;
+    if (authLoading || !isAuthenticated) return;
     let cancelled = false;
     (async () => {
       try {
@@ -29,7 +31,7 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [isAuthenticated, authLoading]);
 
   const addFavorite = useCallback(async (favorite: Omit<Favorite, "id">) => {
     try {

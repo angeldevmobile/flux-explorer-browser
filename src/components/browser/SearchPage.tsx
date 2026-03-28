@@ -1,11 +1,25 @@
-import { Globe, ExternalLink, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Mic, Sparkles } from "lucide-react";
+import { Globe, ExternalLink, Loader2, AlertCircle, Search, ChevronLeft, ChevronRight, Mic, Sparkles, Image, Video, LayoutList } from "lucide-react";
 import { useOrionSearch } from "@/hooks/useOrionSearch";
 import { OrionLogo } from "@/components/browser/OrionLogo";
 import { useRef, useState, useEffect, useCallback } from "react";
 
+type SearchTab = "all" | "images" | "videos";
+
 interface SearchPageProps {
   query: string;
   onNavigate: (url: string) => void;
+}
+
+function proxyImage(url: string): string {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) return url;
+    // Rust engine (puerto 4000): zero-copy, Tokio multi-thread, sin GC
+    return `http://localhost:4000/image?url=${encodeURIComponent(url)}`;
+  } catch {
+    return url;
+  }
 }
 
 function getFavicon(url: string) {
@@ -41,12 +55,15 @@ function buildPageNumbers(page: number, maxPage: number): (number | "...")[] {
 }
 
 export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
+  const [activeTab, setActiveTab] = useState<SearchTab>("all");
+  const TAB_CATEGORY: Record<SearchTab, string> = { all: "general", images: "images", videos: "videos" };
   const { results, loading, error, page, hasMore, maxPage, nextPage, prevPage, goToPage } =
-    useOrionSearch(query);
+    useOrionSearch(query, TAB_CATEGORY[activeTab]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const suggestionsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchSuggestions = useCallback((val: string) => {
@@ -62,6 +79,18 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
   }, []);
 
   useEffect(() => () => { if (suggestionsTimer.current) clearTimeout(suggestionsTimer.current); }, []);
+
+  // "¿Quisiste decir?" — busca sugerencia cuando no hay resultados
+  useEffect(() => {
+    if (loading || results.length > 0) { setDidYouMean(null); return; }
+    fetch(`http://localhost:3000/api/suggestions?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const first: string | undefined = d.suggestions?.[0];
+        setDidYouMean(first && first.toLowerCase() !== query.toLowerCase() ? first : null);
+      })
+      .catch(() => setDidYouMean(null));
+  }, [query, loading, results.length]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -95,6 +124,19 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
   };
 
   const pageNumbers = buildPageNumbers(page, maxPage);
+
+  // Para images filtramos solo los que tienen thumbnail real.
+  // Para videos SearXNG ya devuelve solo videos (category=videos), no filtramos.
+  const visibleResults =
+    activeTab === "images"
+      ? results.filter((r) => r.thumbnail)
+      : results;
+
+  const TABS: { id: SearchTab; label: string; icon: React.ReactNode }[] = [
+    { id: "all", label: "Todo", icon: <LayoutList className="w-3.5 h-3.5" /> },
+    { id: "images", label: "Imágenes", icon: <Image className="w-3.5 h-3.5" /> },
+    { id: "videos", label: "Videos", icon: <Video className="w-3.5 h-3.5" /> },
+  ];
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -218,12 +260,47 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
       </header>
 
       {/* ═══════════════════════════════════════════════════
+          TABS — Todo · Imágenes · Videos
+      ═══════════════════════════════════════════════════ */}
+      <div
+        className="flex-shrink-0 flex items-center justify-center gap-1"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", height: "42px" }}
+      >
+        {TABS.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-1.5 px-3 h-[30px] rounded-full text-[12px] font-medium transition-all duration-150"
+              style={
+                active
+                  ? {
+                      background: "rgba(6,182,212,0.12)",
+                      border: "1px solid rgba(6,182,212,0.35)",
+                      color: "rgba(6,182,212,1)",
+                    }
+                  : {
+                      background: "transparent",
+                      border: "1px solid transparent",
+                      color: "rgba(255,255,255,0.35)",
+                    }
+              }
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════
           ÁREA DE RESULTADOS
       ═══════════════════════════════════════════════════ */}
       <div className="flex-1 overflow-y-auto">
         <div
-          className="mx-auto px-10 py-5"
-          style={{ maxWidth: "860px" }}
+          className="mx-auto px-8 py-5"
+          style={{ maxWidth: activeTab === "images" ? "1200px" : activeTab === "videos" ? "960px" : "860px" }}
         >
 
           {/* Error */}
@@ -241,7 +318,7 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
           )}
 
           {/* ── Skeleton ── */}
-          {loading && results.length === 0 && (
+          {loading && visibleResults.length === 0 && activeTab === "all" && (
             <div className="space-y-6">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="animate-pulse">
@@ -256,19 +333,138 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
               ))}
             </div>
           )}
+          {loading && visibleResults.length === 0 && activeTab === "images" && (
+            <div className="grid grid-cols-4 gap-3 animate-pulse">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="bg-white/6" style={{ height: "120px" }} />
+                  <div className="px-2.5 py-2 space-y-1.5">
+                    <div className="h-2.5 rounded-full bg-white/6 w-full" />
+                    <div className="h-2 rounded-full bg-white/4 w-2/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {loading && visibleResults.length === 0 && activeTab === "videos" && (
+            <div className="space-y-4 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex gap-4 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div className="flex-shrink-0 rounded-xl bg-white/6" style={{ width: "200px", height: "112px" }} />
+                  <div className="flex-1 flex flex-col justify-center gap-2">
+                    <div className="h-2.5 rounded-full bg-white/6 w-24" />
+                    <div className="h-4 rounded-full bg-white/8 w-3/4" />
+                    <div className="h-3 rounded-full bg-white/5 w-full" />
+                    <div className="h-3 rounded-full bg-white/4 w-5/6" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── Resultados ── */}
-          <div className="space-y-0">
-            {results.map((result, i) => {
+          <div className={activeTab === "images" ? "grid grid-cols-4 gap-3" : "space-y-0"}>
+            {visibleResults.map((result, i) => {
               const favicon = getFavicon(result.url);
               const domain = getDomain(result.url);
+
+              /* ── Tarjeta de IMAGEN ── */
+              if (activeTab === "images" && result.thumbnail) {
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onNavigate(result.url)}
+                    className="group rounded-xl overflow-hidden text-left transition-all duration-200 hover:scale-[1.02]"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
+                  >
+                    <div className="overflow-hidden" style={{ height: "120px" }}>
+                      <img
+                        src={proxyImage(result.thumbnail)}
+                        alt={result.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          const el = e.currentTarget as HTMLImageElement;
+                          el.style.display = "none";
+                          el.parentElement!.style.background = "rgba(255,255,255,0.04)";
+                        }}
+                      />
+                    </div>
+                    <div className="px-2.5 py-2">
+                      <p className="text-[11px] font-medium line-clamp-2 leading-snug" style={{ color: "rgba(6,182,212,0.9)" }}>{result.title}</p>
+                      <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.28)" }}>{domain}</p>
+                    </div>
+                  </button>
+                );
+              }
+
+              /* ── Tarjeta de VIDEO ── */
+              if (activeTab === "videos") {
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onNavigate(result.url)}
+                    className="w-full text-left group flex gap-4 py-4 transition-all duration-150"
+                    style={{ borderBottom: i < visibleResults.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}
+                  >
+                    {/* Thumbnail */}
+                    <div
+                      className="flex-shrink-0 rounded-xl overflow-hidden relative"
+                      style={{ width: "200px", height: "112px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    >
+                      {result.thumbnail ? (
+                        <img
+                          src={proxyImage(result.thumbnail)}
+                          alt={result.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Video className="w-8 h-8" style={{ color: "rgba(255,255,255,0.15)" }} />
+                        </div>
+                      )}
+                      {/* Play overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                        style={{ background: "rgba(0,0,0,0.4)" }}>
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                          style={{ background: "rgba(6,182,212,0.85)" }}>
+                          <Video className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        {favicon && (
+                          <img src={favicon} className="w-4 h-4 rounded-sm flex-shrink-0" style={{ opacity: 0.7 }}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        )}
+                        <span className="text-[12px]" style={{ color: "rgba(255,255,255,0.35)" }}>{domain}</span>
+                      </div>
+                      <p className="text-[15px] font-semibold line-clamp-2 leading-snug mb-2"
+                        style={{ color: "rgba(6,182,212,0.9)" }}>
+                        {result.title}
+                      </p>
+                      {result.content && (
+                        <p className="text-[13px] line-clamp-2 leading-relaxed"
+                          style={{ color: "rgba(255,255,255,0.4)" }}>
+                          {result.content}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
+
+              /* ── Resultado WEB normal ── */
               return (
                 <button
                   key={i}
                   onClick={() => onNavigate(result.url)}
                   className="w-full text-left group py-4 transition-all duration-150"
                   style={{
-                    borderBottom: i < results.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    borderBottom: i < visibleResults.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                   }}
                 >
                   {/* Dominio */}
@@ -319,7 +515,7 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
           </div>
 
           {/* Sin resultados */}
-          {!loading && !error && results.length === 0 && (
+          {!loading && !error && visibleResults.length === 0 && (
             <div className="flex flex-col items-center gap-4 py-20 text-center">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -332,17 +528,29 @@ export const SearchPage = ({ query, onNavigate }: SearchPageProps) => {
               </div>
               <div>
                 <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  Sin resultados
+                  Sin resultados para "{query}"
                 </p>
-                <p className="text-[12px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>
-                  para "{query}"
-                </p>
+                {didYouMean && (
+                  <p className="text-[13px] mt-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    ¿Quisiste decir{" "}
+                    <button
+                      onClick={() => onNavigate(`flux://search?q=${encodeURIComponent(didYouMean)}`)}
+                      className="font-semibold underline underline-offset-2 transition-colors"
+                      style={{ color: "rgba(6,182,212,0.9)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(103,232,249,1)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(6,182,212,0.9)")}
+                    >
+                      {didYouMean}
+                    </button>
+                    ?
+                  </p>
+                )}
               </div>
             </div>
           )}
 
           {/* ── Paginación numerada ── */}
-          {!loading && results.length > 0 && (
+          {!loading && visibleResults.length > 0 && (
             <div className="flex items-center justify-center gap-1.5 pt-6 pb-8">
               {/* Anterior */}
               <button

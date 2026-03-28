@@ -72,10 +72,26 @@ export class SearchController {
 
     const query = q.trim();
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const category = (req.query.category as string) || "general";
 
     try {
       // 1. SearXNG obtiene las URLs (con title + description del índice)
-      const searxData = await searchWeb(query, page);
+      const searxData = await searchWeb(query, page, category);
+
+      // Para imágenes y videos, SearXNG ya devuelve los datos completos —
+      // no necesitamos pasar por Orion Engine (que fetchea y parsea HTML).
+      if (category === "images" || category === "videos") {
+        const results = searxData.results.map((r) => ({
+          url:       r.url,
+          title:     r.title || r.url,
+          content:   r.content || "",
+          thumbnail: r.img_src || r.thumbnail_src || r.thumbnail || "",
+          score:     1,
+          visited:   false,
+        }));
+        return res.json({ query, results, total: results.length, source: "searxng", cached: false });
+      }
+
       const urls = searxData.results.map((r) => r.url).slice(0, 10);
 
       const searxFallback = new Map(searxData.results.map((r) => [r.url, r]));
