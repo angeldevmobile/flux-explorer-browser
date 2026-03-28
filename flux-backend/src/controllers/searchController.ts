@@ -26,8 +26,8 @@ export class SearchController {
         where: {
           userId,
           OR: [
-            { url: { contains: searchTerm, mode: "insensitive" } },
-            { title: { contains: searchTerm, mode: "insensitive" } },
+            { url: { contains: searchTerm } },
+            { title: { contains: searchTerm } },
           ],
         },
         take: 10,
@@ -39,8 +39,8 @@ export class SearchController {
         where: {
           userId,
           OR: [
-            { url: { contains: searchTerm, mode: "insensitive" } },
-            { title: { contains: searchTerm, mode: "insensitive" } },
+            { url: { contains: searchTerm } },
+            { title: { contains: searchTerm } },
           ],
         },
         take: 20,

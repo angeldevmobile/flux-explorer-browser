@@ -17,8 +17,8 @@ export class HistoryController {
       // Búsqueda opcional
       if (search) {
         where.OR = [
-          { url: { contains: search as string, mode: 'insensitive' } },
-          { title: { contains: search as string, mode: 'insensitive' } },
+          { url: { contains: search as string } },
+          { title: { contains: search as string } },
         ];
       }
 
