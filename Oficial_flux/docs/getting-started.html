@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Primeros Pasos — Flux Browser</title>
+  <link rel="icon" type="image/png" href="../../assets/flux_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../assets/css/flux.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:34px;height:34px;border-radius:9px;box-shadow:0 0 14px rgba(6,182,212,0.5);" />
+        <span style="font-size:19px;font-weight:800;background:linear-gradient(135deg,#06b6d4,#2dd4bf);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Flux Browser</span>
+        <span style="font-size:11px;color:#475569;font-weight:500;padding-left:4px;">/ Primeros Pasos</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="index.html" class="nav-link">Docs</a>
+        <a href="features.html" class="nav-link">Características</a>
+        <a href="architecture.html" class="nav-link">Arquitectura</a>
+        <a href="changelog.html" class="nav-link">Changelog</a>
+      </div>
+      <a href="../index.html#download" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-slate-900 hidden md:inline-flex items-center gap-2">
+        <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-16 px-6" style="background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(6,182,212,0.12) 0%, transparent 60%), #020617;">
+    <div class="max-w-4xl mx-auto">
+      <a href="index.html" class="inline-flex items-center gap-2 text-slate-500 text-sm mb-8 hover:text-cyan-400 transition-colors">
+        <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Volver a Docs
+      </a>
+      <div class="section-label mb-5">Guía de Instalación</div>
+      <h1 class="text-5xl font-black mb-5 gradient-text-wide leading-tight">Primeros Pasos</h1>
+      <p class="text-slate-400 text-xl max-w-2xl mb-4">Descarga, instala y lanza Flux Browser en menos de 60 segundos. Sin instaladores complejos ni dependencias externas.</p>
+      <div class="flex items-center gap-3">
+        <span class="badge-stable">v1.0.0-beta.1</span>
+        <span class="text-slate-600 text-sm">Windows 10 / 11</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <div class="max-w-4xl mx-auto px-6 pb-24">
+
+    <!-- Requisitos del sistema -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">💻</span>
+        Requisitos del sistema
+      </h2>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead>
+            <tr>
+              <th>Componente</th>
+              <th>Mínimo</th>
+              <th>Recomendado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-slate-300 font-medium">Sistema operativo</td>
+              <td>Windows 10 (build 1803+)</td>
+              <td>Windows 11</td>
+            </tr>
+            <tr>
+              <td class="text-slate-300 font-medium">RAM</td>
+              <td>4 GB</td>
+              <td>8 GB o más</td>
+            </tr>
+            <tr>
+              <td class="text-slate-300 font-medium">Almacenamiento</td>
+              <td>150 MB libres</td>
+              <td>500 MB+ (para caché y flux.db)</td>
+            </tr>
+            <tr>
+              <td class="text-slate-300 font-medium">WebView2 Runtime</td>
+              <td>Requerido</td>
+              <td>Preinstalado en Windows 11</td>
+            </tr>
+            <tr>
+              <td class="text-slate-300 font-medium">Conexión a internet</td>
+              <td>Requerida para navegar</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-slate-500 text-sm mt-3">
+        <span style="color:#06b6d4;">ℹ</span> WebView2 Runtime está incluido por defecto en Windows 11. En Windows 10 se instala automáticamente junto con las actualizaciones de Microsoft Edge, o puedes descargarlo desde microsoft.com.
+      </p>
+    </section>
+
+    <!-- Instalación -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🚀</span>
+        Instalación en 3 pasos
+      </h2>
+
+      <!-- Step 1 -->
+      <div class="glass-card p-7 mb-4 flex gap-6 items-start">
+        <div style="flex-shrink:0;width:48px;height:48px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.35);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#06b6d4;">1</div>
+        <div>
+          <h3 class="text-white font-bold text-lg mb-2">Descarga el ejecutable</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">El navegador se distribuye como un único archivo <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 6px;font-size:12px;color:#06b6d4;">.exe</code> de ~45 MB. No hay instalador. No hay proceso de setup.</p>
+          <a href="../index.html#download" class="btn-primary px-5 py-2 rounded-lg text-sm font-bold text-slate-900 inline-flex items-center gap-2">
+            <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Descargar Flux Browser
+          </a>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="glass-card p-7 mb-4 flex gap-6 items-start">
+        <div style="flex-shrink:0;width:48px;height:48px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.35);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#06b6d4;">2</div>
+        <div>
+          <h3 class="text-white font-bold text-lg mb-2">Ejecuta el archivo</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-3">Haz doble clic sobre <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 6px;font-size:12px;color:#06b6d4;">flux-browser.exe</code>. La primera vez, Windows puede mostrar una alerta SmartScreen porque el ejecutable no está firmado digitalmente aún.</p>
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:14px 16px;">
+            <p class="text-sm" style="color:#fbbf24;font-weight:600;margin-bottom:4px;">Alerta SmartScreen de Windows</p>
+            <p class="text-slate-400 text-sm">Haz clic en <strong class="text-slate-300">"Más información"</strong> y luego en <strong class="text-slate-300">"Ejecutar de todos modos"</strong>. Flux no tiene malware — la alerta aparece porque la firma de código está en proceso para la beta.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="glass-card p-7 flex gap-6 items-start">
+        <div style="flex-shrink:0;width:48px;height:48px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.35);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#06b6d4;">3</div>
+        <div>
+          <h3 class="text-white font-bold text-lg mb-2">Navega</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Flux inicia directamente con tu página de bienvenida. Todos tus datos (historial, favoritos, preferencias) se guardan automáticamente en <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 6px;font-size:12px;color:#06b6d4;">flux.db</code> — una base de datos SQLite local en la misma carpeta del ejecutable.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Estructura de archivos -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">📁</span>
+        Qué viene en la descarga
+      </h2>
+      <div class="glass-card p-6">
+        <div style="background:rgba(2,6,23,0.6);border-radius:10px;padding:20px;font-family:monospace;font-size:13px;line-height:1.8;">
+          <div class="text-slate-300">flux-browser/</div>
+          <div class="text-slate-300">&nbsp;&nbsp;<span style="color:#06b6d4;">flux-browser.exe</span> &nbsp;&nbsp;&nbsp;&nbsp;← <span class="text-slate-500">abrir esto</span></div>
+          <div class="text-slate-300">&nbsp;&nbsp;<span style="color:#2dd4bf;">flux-backend.exe</span> &nbsp;&nbsp;&nbsp;← <span class="text-slate-500">arranca automáticamente</span></div>
+          <div class="text-slate-300">&nbsp;&nbsp;<span style="color:#a78bfa;">yt-dlp.exe</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← <span class="text-slate-500">bundleado para descargar video/audio</span></div>
+          <div class="text-slate-300">&nbsp;&nbsp;<span style="color:#94a3b8;">flux.db</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← <span class="text-slate-500">se crea en el primer arranque</span></div>
+        </div>
+        <p class="text-slate-500 text-sm mt-4">No se requiere: Node.js · PostgreSQL · Docker · Python · yt-dlp manual.</p>
+      </div>
+    </section>
+
+    <!-- Configuración inicial -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">⚙️</span>
+        Configuración inicial (opcional)
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="glass-card p-6">
+          <div class="text-2xl mb-3">🔑</div>
+          <h3 class="text-white font-bold mb-2">Flux AI con Gemini</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Para usar el asistente IA, el traductor y la detección de canciones necesitas una API key de Google Gemini (gratuita). Añádela en <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#06b6d4;">flux://settings → IA</code>.</p>
+        </div>
+        <div class="glass-card p-6">
+          <div class="text-2xl mb-3">🔍</div>
+          <h3 class="text-white font-bold mb-2">Búsqueda privada con SearXNG</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Si quieres búsqueda 100% privada sin DuckDuckGo, puedes lanzar un SearXNG local con Docker. Sin él, la búsqueda usa DuckDuckGo automáticamente.</p>
+          <div style="background:rgba(2,6,23,0.6);border-radius:7px;padding:10px 13px;font-family:monospace;font-size:12px;margin-top:10px;color:#2dd4bf;">docker compose up -d</div>
+        </div>
+        <div class="glass-card p-6">
+          <div class="text-2xl mb-3">👤</div>
+          <h3 class="text-white font-bold mb-2">Crear una cuenta</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">La cuenta de usuario es opcional y 100% local. Te permite guardar historial personalizado, favoritos sincronizados entre sesiones y re-ranking de búsqueda personalizado.</p>
+        </div>
+        <div class="glass-card p-6">
+          <div class="text-2xl mb-3">🎨</div>
+          <h3 class="text-white font-bold mb-2">Tema visual</h3>
+          <p class="text-slate-400 text-sm leading-relaxed">Flux incluye selector de temas en <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#06b6d4;">flux://settings → Apariencia</code>. El tema oscuro con acento cyan es el predeterminado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Atajos de teclado -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">⌨️</span>
+        Atajos de teclado esenciales
+      </h2>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead>
+            <tr><th>Atajo</th><th>Acción</th><th>Estado</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + L</kbd></td>
+              <td>Enfocar barra de direcciones</td>
+              <td><span class="badge-stable">Estable</span></td>
+            </tr>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + R</kbd> / <kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">F5</kbd></td>
+              <td>Recargar página</td>
+              <td><span class="badge-stable">Estable</span></td>
+            </tr>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Escape</kbd></td>
+              <td>Detener carga</td>
+              <td><span class="badge-stable">Estable</span></td>
+            </tr>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + +</kbd> / <kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + -</kbd></td>
+              <td>Zoom in / out</td>
+              <td><span class="badge-stable">Estable</span></td>
+            </tr>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + T</kbd></td>
+              <td>Nueva pestaña</td>
+              <td><span class="badge-soon">Próximamente</span></td>
+            </tr>
+            <tr>
+              <td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + W</kbd></td>
+              <td>Cerrar pestaña</td>
+              <td><span class="badge-soon">Próximamente</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Próximos pasos -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6">Próximos pasos</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="features.html" class="glass-card p-6 group block">
+          <div class="text-2xl mb-3">⚡</div>
+          <h3 class="text-white font-bold mb-1 group-hover:text-cyan-400 transition-colors">Características</h3>
+          <p class="text-slate-400 text-sm">Explora todas las funcionalidades de Flux: bloqueador de anuncios, IA, descargas y más.</p>
+        </a>
+        <a href="architecture.html" class="glass-card p-6 group block">
+          <div class="text-2xl mb-3">🏗️</div>
+          <h3 class="text-white font-bold mb-1 group-hover:text-cyan-400 transition-colors">Arquitectura</h3>
+          <p class="text-slate-400 text-sm">Cómo funciona el motor Rust, el IPC y el pipeline de renderizado.</p>
+        </a>
+        <a href="changelog.html" class="glass-card p-6 group block">
+          <div class="text-2xl mb-3">📋</div>
+          <h3 class="text-white font-bold mb-1 group-hover:text-cyan-400 transition-colors">Changelog</h3>
+          <p class="text-slate-400 text-sm">Novedades de v1.0.0-beta.1 y el roadmap de próximas versiones.</p>
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer style="background:rgba(2,6,23,0.95);border-top:1px solid rgba(6,182,212,0.1);" class="py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:28px;height:28px;border-radius:7px;" />
+        <span class="text-slate-500 text-sm">© 2026 Flux Browser — Gabriel Zapata</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="../index.html" class="footer-link">Inicio</a>
+        <a href="index.html" class="footer-link">Docs</a>
+        <a href="features.html" class="footer-link">Características</a>
+        <a href="architecture.html" class="footer-link">Arquitectura</a>
+        <a href="changelog.html" class="footer-link">Changelog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>

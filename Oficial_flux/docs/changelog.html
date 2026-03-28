@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Changelog — Flux Browser</title>
+  <link rel="icon" type="image/png" href="../../assets/flux_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../assets/css/flux.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:34px;height:34px;border-radius:9px;box-shadow:0 0 14px rgba(6,182,212,0.5);" />
+        <span style="font-size:19px;font-weight:800;background:linear-gradient(135deg,#06b6d4,#2dd4bf);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Flux Browser</span>
+        <span style="font-size:11px;color:#475569;font-weight:500;padding-left:4px;">/ Changelog</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="index.html" class="nav-link">Docs</a>
+        <a href="getting-started.html" class="nav-link">Primeros pasos</a>
+        <a href="features.html" class="nav-link">Características</a>
+        <a href="architecture.html" class="nav-link">Arquitectura</a>
+      </div>
+      <a href="../index.html#download" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-slate-900 hidden md:inline-flex items-center gap-2">
+        <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-16 px-6" style="background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(6,182,212,0.12) 0%, transparent 60%), #020617;">
+    <div class="max-w-4xl mx-auto">
+      <a href="index.html" class="inline-flex items-center gap-2 text-slate-500 text-sm mb-8 hover:text-cyan-400 transition-colors">
+        <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Volver a Docs
+      </a>
+      <div class="section-label mb-5">Historial de versiones</div>
+      <h1 class="text-5xl font-black mb-5 gradient-text-wide leading-tight">Changelog</h1>
+      <p class="text-slate-400 text-xl max-w-2xl">Novedades por versión y roadmap de próximas características.</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <div class="max-w-4xl mx-auto px-6 pb-24">
+
+    <!-- v1.0.0-beta.1 -->
+    <div class="relative pl-8 mb-16" style="border-left: 2px solid rgba(6,182,212,0.25);">
+      <div style="position:absolute;left:-9px;top:6px;width:16px;height:16px;background:#06b6d4;border-radius:50%;box-shadow:0 0 12px rgba(6,182,212,0.6);"></div>
+
+      <div class="mb-6">
+        <div class="flex items-center gap-3 mb-1 flex-wrap">
+          <h2 class="text-2xl font-black text-white">v1.0.0-beta.1</h2>
+          <span class="badge-stable">Beta pública</span>
+          <span class="text-slate-500 text-sm">Marzo 2026</span>
+        </div>
+        <p class="text-slate-400 text-sm">Primera versión pública de Flux Browser. Motor Rust operativo, UI React completa, backend standalone y todas las funcionalidades core disponibles.</p>
+      </div>
+
+      <!-- Motor -->
+      <div class="glass-card p-6 mb-4">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#06b6d4;">flux-engine</span>
+          Motor Rust
+        </h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Tokenizer HTML zero-copy basado en <code style="font-size:11px;color:#2dd4bf;">&amp;str</code> — sin allocations del HTML fuente</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Parser DOM arena-based con <code style="font-size:11px;color:#2dd4bf;">Vec&lt;Node&gt;</code> + NodeId — cache-friendly, sin Box/Rc</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> CSS cascade con especificidad completa (tag · clase · id · inline) y UA stylesheet</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Inline layout + word wrapping + text-align (left/center/right)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> <strong class="text-slate-300">FluxSoftRenderer</strong> — pixel buffer XRGB8888 con fontdue glyph atlas y alpha blending</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> JavaScript con QuickJS (rquickjs) — DOM bindings completos, fetch() real, eventos, sandbox</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> SecurityLayer: HTTPS-only, HSTS preload, CSP enforcement, ad/tracker blocker</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Bloqueador de anuncios YouTube — 3 capas: scriptlet + CSS cosmético + intercepción fetch/XHR</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Descargador de medios con yt-dlp bundleado y progreso en tiempo real via IPC</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Mute por pestaña via IPC</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Sistema de permisos nativos (cámara, micrófono, notificaciones) implementado en Rust</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Manejo graceful de fallos del engine — si el puerto 4000 está ocupado el browser sigue</li>
+        </ul>
+      </div>
+
+      <!-- Ventana nativa -->
+      <div class="glass-card p-6 mb-4">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <span style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#2dd4bf;">wry / tao</span>
+          Ventana nativa
+        </h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Ventana nativa con tao — sin decoraciones, transparente, frameless</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> chrome_view (React UI) + content_view (páginas externas) en dos WebViews separados</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> IPC bidireccional completo entre React y Rust</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Resize dinámico de los dos WebViews según la altura del chrome</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> HTTPS upgrade antes de load_url()</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> flux-backend.exe como sidecar — arranca y cierra automáticamente con el browser</li>
+        </ul>
+      </div>
+
+      <!-- Búsqueda -->
+      <div class="glass-card p-6 mb-4">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <span style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#a78bfa;">Flux Search</span>
+          Motor de búsqueda
+        </h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> SearXNG self-hosted (Docker, opcional) — búsqueda privada sin Google/Bing</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Fallback automático a DuckDuckGo si SearXNG no está activo</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Re-ranking BM25 en Rust (flux-engine :4000 POST /process)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Ranking personalizado por historial — boost proporcional a frecuencia de visitas</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Caché de búsquedas en memoria con TTL de 5 minutos</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Autocompletado en barra de URL con historial y favoritos</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Resumen IA de resultados via Gemini (endpoint separado, no bloquea la carga)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Paginación de resultados</li>
+        </ul>
+      </div>
+
+      <!-- Backend -->
+      <div class="glass-card p-6 mb-4">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#06b6d4;">flux-backend</span>
+          Backend y persistencia
+        </h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> <strong class="text-slate-300">Migración a SQLite</strong> — sin PostgreSQL, sin Docker, cero dependencias para el usuario</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> <strong class="text-slate-300">Distribución como exe standalone</strong> — compilado con @yao-pkg/pkg, no requiere Node.js</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Auth JWT + bcrypt — cuentas de usuario 100% locales</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Historial, favoritos, tabs, grupos de tabs, preferencias persistentes</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Estadísticas de navegación — BrowsingStats, SiteVisit, HourlyActivity</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Gemini IA — chat, resúmenes, OCR, detección de canciones</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Servicio de traducción — Gemini + fallback MyMemory (15 idiomas, sin API key extra)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Noticias RSS, clima (wttr.in), tendencias (Google Trends)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Registro de descargas de medios</li>
+        </ul>
+      </div>
+
+      <!-- UI -->
+      <div class="glass-card p-6">
+        <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:3px 8px;font-size:12px;color:#06b6d4;">UI</span>
+          Interfaz React
+        </h3>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Chrome React con identidad visual Flux (dark, cyan, glassmorphism)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Barra de direcciones con búsqueda integrada y autocompletado</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Sistema de tabs con grupos y colores personalizados</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Panel lateral flotante de IA (FluxAISidePanel) — contextual con URL y título actual</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Nueva pestaña con clima, noticias RSS, tendencias y búsqueda por voz</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Descargador de medios con progreso en tiempo real via IPC</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Focus Mode con lista de sitios bloqueados y sesiones de enfoque</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Reader Mode, Split view, Panel de favoritos</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Modo privado / incógnito por pestaña</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Onboarding de bienvenida al primer arranque</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> OCR (Gemini Vision) y Detección de canciones (Gemini Audio)</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Selector de tema, estadísticas de uso, dev tools, view-source</li>
+          <li class="flex items-start gap-2"><span style="color:#4ade80;flex-shrink:0;margin-top:1px;">✓</span> Sistema de login y registro de usuario con auth local</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Roadmap -->
+    <div class="mb-16">
+      <h2 class="text-2xl font-black text-white mb-8 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🗺️</span>
+        Roadmap
+      </h2>
+
+      <div class="space-y-4">
+
+        <!-- Próximo -->
+        <div class="glass-card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="badge-beta">Próxima versión</span>
+            <h3 class="text-white font-bold">v1.0.0-beta.2 — Renderer nativo</h3>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-start gap-2"><span style="color:#fbbf24;flex-shrink:0;margin-top:1px;">◯</span> <strong class="text-slate-300">Conectar FluxSoftRenderer al content_view</strong> — las páginas se renderizan con el motor Rust propio en lugar de WebView2</li>
+            <li class="flex items-start gap-2"><span style="color:#fbbf24;flex-shrink:0;margin-top:1px;">◯</span> Flexbox layout en el engine</li>
+            <li class="flex items-start gap-2"><span style="color:#fbbf24;flex-shrink:0;margin-top:1px;">◯</span> Soporte &lt;img&gt; — decodificación y pintado en el pixel buffer</li>
+            <li class="flex items-start gap-2"><span style="color:#fbbf24;flex-shrink:0;margin-top:1px;">◯</span> Cookie jar por dominio</li>
+            <li class="flex items-start gap-2"><span style="color:#fbbf24;flex-shrink:0;margin-top:1px;">◯</span> Caché HTTP (ETag, Cache-Control)</li>
+          </ul>
+        </div>
+
+        <!-- Futuro -->
+        <div class="glass-card p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="badge-soon">Futuro</span>
+            <h3 class="text-white font-bold">Engine y plataformas</h3>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-400">
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> setInterval / eventos de input reales</li>
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> Bloqueador general con listas EasyList/EasyPrivacy completas (crate adblock, actualización automática)</li>
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> macOS 11+ — empaquetar como .app (el engine Rust ya compila en macOS)</li>
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> Linux — wry soporta GTK/WebKitGTK</li>
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> Sincronización entre dispositivos (UI lista en Settings, diferida para post-beta)</li>
+            <li class="flex items-start gap-2"><span style="color:#475569;flex-shrink:0;margin-top:1px;">◯</span> Android / iOS — largo plazo</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Plataformas -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">💻</span>
+        Plataformas
+      </h2>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Plataforma</th><th>Estado</th><th>Notas</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="font-medium text-slate-300">Windows 10 / 11</td>
+              <td><span class="badge-stable">Disponible</span></td>
+              <td>.exe nativo, WebView2 preinstalado en Win11</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-slate-300">macOS 11+</td>
+              <td><span class="badge-soon">Próximamente</span></td>
+              <td>El engine Rust ya compila en macOS — falta empaquetar como .app</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-slate-300">Linux</td>
+              <td><span class="badge-beta">Investigación</span></td>
+              <td>wry soporta GTK/WebKitGTK — sin fecha estimada</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-slate-300">Android</td>
+              <td><span class="badge-soon">Largo plazo</span></td>
+              <td>Requiere adaptar backend y UI para táctil</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-slate-300">iOS</td>
+              <td><span class="badge-soon">Largo plazo</span></td>
+              <td>Mismo roadmap que Android</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer style="background:rgba(2,6,23,0.95);border-top:1px solid rgba(6,182,212,0.1);" class="py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:28px;height:28px;border-radius:7px;" />
+        <span class="text-slate-500 text-sm">© 2026 Flux Browser — Gabriel Zapata</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="../index.html" class="footer-link">Inicio</a>
+        <a href="index.html" class="footer-link">Docs</a>
+        <a href="getting-started.html" class="footer-link">Primeros pasos</a>
+        <a href="features.html" class="footer-link">Características</a>
+        <a href="architecture.html" class="footer-link">Arquitectura</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>

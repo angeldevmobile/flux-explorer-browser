@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentación — Flux Browser</title>
+  <link rel="icon" type="image/png" href="../../assets/flux_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../assets/css/flux.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:34px;height:34px;border-radius:9px;box-shadow:0 0 14px rgba(6,182,212,0.5);" />
+        <span style="font-size:19px;font-weight:800;background:linear-gradient(135deg,#06b6d4,#2dd4bf);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Flux Browser</span>
+        <span style="font-size:11px;color:#475569;font-weight:500;padding-left:4px;">/ Docs</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="../index.html#features" class="nav-link">Características</a>
+        <a href="getting-started.html" class="nav-link">Primeros pasos</a>
+        <a href="architecture.html" class="nav-link">Arquitectura</a>
+        <a href="changelog.html" class="nav-link">Changelog</a>
+      </div>
+      <a href="../index.html#download" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-slate-900 hidden md:inline-flex items-center gap-2">
+        <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO DOCS -->
+  <section class="pt-32 pb-20 px-6" style="background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(6,182,212,0.15) 0%, transparent 60%), #020617;">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="section-label mb-6">Documentación</div>
+      <h1 class="text-5xl font-black mb-6 gradient-text-wide leading-tight">Todo lo que necesitas<br/>para entender Flux</h1>
+      <p class="text-slate-400 text-xl max-w-2xl mx-auto mb-10">Guías completas de instalación, arquitectura técnica, referencia de características y más.</p>
+      <!-- Search bar (visual) -->
+      <div class="max-w-xl mx-auto relative">
+        <div style="background:rgba(15,23,42,0.8);border:1px solid rgba(6,182,212,0.25);border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:12px;">
+          <svg style="width:18px;height:18px;color:#475569;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+          <span style="color:#475569;font-size:15px;">Buscar en la documentación...</span>
+          <span style="margin-left:auto;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:6px;padding:2px 8px;font-size:11px;color:#475569;">Ctrl K</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCS GRID -->
+  <section class="py-20 px-6">
+    <div class="max-w-6xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Getting Started -->
+        <a href="getting-started.html" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">🚀</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Primeros Pasos</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">Descarga, instala y lanza Flux Browser en menos de 60 segundos. Requisitos del sistema y primera ejecución.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-new">Instalación</span>
+            <span class="badge-new">Configuración</span>
+          </div>
+        </a>
+
+        <!-- Features -->
+        <a href="features.html" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">⚡</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Características</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">Bloqueo de anuncios, modo enfoque, IA integrada, descargas de medios, historial local y más. Cada función explicada.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-stable">Estable</span>
+            <span class="badge-beta">Beta</span>
+          </div>
+        </a>
+
+        <!-- Architecture -->
+        <a href="architecture.html" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">🏗️</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Arquitectura</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">Diseño de 3 procesos: motor Rust (Orion), UI React y backend Node.js. IPC, WebView2 y pipeline de compilación.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-new">Rust</span>
+            <span class="badge-new">React</span>
+            <span class="badge-new">Node.js</span>
+          </div>
+        </a>
+
+        <!-- Security -->
+        <a href="features.html#security" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">🛡️</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Seguridad y Privacidad</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">HTTPS-only, HSTS preload, bloqueo de trackers (EasyList), CSP, permisos por sitio y cero telemetría.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-stable">Activo</span>
+          </div>
+        </a>
+
+        <!-- IPC Reference -->
+        <a href="architecture.html#ipc" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">🔌</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Referencia IPC</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">Todos los comandos IPC entre React UI y el motor Rust: navigate, reload, zoom, permisos, descargas y más.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-new">API</span>
+            <span class="badge-beta">Interno</span>
+          </div>
+        </a>
+
+        <!-- Changelog -->
+        <a href="changelog.html" class="glass-card p-7 group block">
+          <div class="feature-icon mb-5">📋</div>
+          <h2 class="text-white font-bold text-xl mb-2 group-hover:text-cyan-400 transition-colors">Changelog</h2>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">Historial de versiones, novedades por release y roadmap de próximas características.</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="badge-stable">v1.0.0-beta.1</span>
+          </div>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- QUICK START SECTION -->
+  <section class="py-20 px-6" style="background:radial-gradient(ellipse 60% 40% at 50% 50%, rgba(6,182,212,0.04) 0%, transparent 70%);">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-12">
+        <div class="section-label mb-4">Inicio Rápido</div>
+        <h2 class="text-3xl font-black gradient-text mb-3">Listo en 3 pasos</h2>
+        <p class="text-slate-400">Sin instaladores complejos. Sin configuración extra.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card p-6 text-center fade-up">
+          <div style="width:56px;height:56px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;font-weight:900;color:#06b6d4;">1</div>
+          <h3 class="text-white font-bold mb-2">Descarga el .exe</h3>
+          <p class="text-slate-400 text-sm">Un solo archivo ejecutable. ~45 MB. No requiere instalador.</p>
+        </div>
+        <div class="glass-card p-6 text-center fade-up" style="transition-delay:0.1s">
+          <div style="width:56px;height:56px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;font-weight:900;color:#06b6d4;">2</div>
+          <h3 class="text-white font-bold mb-2">Ejecuta</h3>
+          <p class="text-slate-400 text-sm">Doble clic. Windows puede mostrar una alerta SmartScreen — clic en "Más información" → "Ejecutar de todos modos".</p>
+        </div>
+        <div class="glass-card p-6 text-center fade-up" style="transition-delay:0.2s">
+          <div style="width:56px;height:56px;background:linear-gradient(135deg,rgba(6,182,212,0.2),rgba(45,212,191,0.1));border:1px solid rgba(6,182,212,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;font-weight:900;color:#06b6d4;">3</div>
+          <h3 class="text-white font-bold mb-2">Navega</h3>
+          <p class="text-slate-400 text-sm">Flux inicia con tu página de bienvenida. Todos tus datos se guardan localmente en flux.db.</p>
+        </div>
+      </div>
+      <div class="text-center mt-10">
+        <a href="getting-started.html" class="btn-secondary px-6 py-3 rounded-xl text-sm">
+          Ver guía completa de instalación →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- KEYBOARD SHORTCUTS -->
+  <section class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-12">
+        <div class="section-label mb-4">Referencia Rápida</div>
+        <h2 class="text-3xl font-black gradient-text mb-3">Atajos de teclado</h2>
+      </div>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead>
+            <tr>
+              <th>Atajo</th>
+              <th>Acción</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + R</kbd> / <kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">F5</kbd></td><td>Recargar página</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Escape</kbd></td><td>Detener carga</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + L</kbd></td><td>Enfocar barra de direcciones</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + T</kbd></td><td>Nueva pestaña</td><td><span class="badge-soon">Próximamente</span></td></tr>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + W</kbd></td><td>Cerrar pestaña</td><td><span class="badge-soon">Próximamente</span></td></tr>
+            <tr><td><kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + +</kbd> / <kbd style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:5px;padding:2px 8px;font-size:12px;color:#06b6d4;font-family:monospace;">Ctrl + -</kbd></td><td>Zoom in / out</td><td><span class="badge-stable">Estable</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer style="background:rgba(2,6,23,0.95);border-top:1px solid rgba(6,182,212,0.1);" class="py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:28px;height:28px;border-radius:7px;" />
+        <span class="text-slate-500 text-sm">© 2026 Flux Browser — Gabriel Zapata</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="../index.html" class="footer-link">Inicio</a>
+        <a href="getting-started.html" class="footer-link">Primeros pasos</a>
+        <a href="architecture.html" class="footer-link">Arquitectura</a>
+        <a href="changelog.html" class="footer-link">Changelog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>

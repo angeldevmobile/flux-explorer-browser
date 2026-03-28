@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arquitectura — Flux Browser</title>
+  <link rel="icon" type="image/png" href="../../assets/flux_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../assets/css/flux.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:34px;height:34px;border-radius:9px;box-shadow:0 0 14px rgba(6,182,212,0.5);" />
+        <span style="font-size:19px;font-weight:800;background:linear-gradient(135deg,#06b6d4,#2dd4bf);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Flux Browser</span>
+        <span style="font-size:11px;color:#475569;font-weight:500;padding-left:4px;">/ Arquitectura</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="index.html" class="nav-link">Docs</a>
+        <a href="getting-started.html" class="nav-link">Primeros pasos</a>
+        <a href="features.html" class="nav-link">Características</a>
+        <a href="changelog.html" class="nav-link">Changelog</a>
+      </div>
+      <a href="../index.html#download" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-slate-900 hidden md:inline-flex items-center gap-2">
+        <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-16 px-6" style="background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(6,182,212,0.12) 0%, transparent 60%), #020617;">
+    <div class="max-w-4xl mx-auto">
+      <a href="index.html" class="inline-flex items-center gap-2 text-slate-500 text-sm mb-8 hover:text-cyan-400 transition-colors">
+        <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Volver a Docs
+      </a>
+      <div class="section-label mb-5">Diseño técnico</div>
+      <h1 class="text-5xl font-black mb-5 gradient-text-wide leading-tight">Arquitectura</h1>
+      <p class="text-slate-400 text-xl max-w-2xl">Tres procesos, un motor propio en Rust y cero dependencias externas para el usuario final.</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <div class="max-w-4xl mx-auto px-6 pb-24 space-y-16">
+
+    <!-- Visión general -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🗺️</span>
+        Visión general
+      </h2>
+      <div class="glass-card p-6 mb-6">
+        <div style="font-family:monospace;font-size:12px;line-height:1.9;overflow-x:auto;background:rgba(2,6,23,0.7);border-radius:10px;padding:20px;">
+          <div style="color:#64748b;">flux-browser.exe &nbsp;&nbsp;← proceso principal Rust</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;├── <span style="color:#06b6d4;">chrome_view</span> &nbsp;&nbsp;&nbsp;← WebView2 para la UI React del browser</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;├── <span style="color:#2dd4bf;">content_view</span> &nbsp;&nbsp;← WebView2 para las páginas web</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;└── <span style="color:#a78bfa;">flux-backend</span> &nbsp;&nbsp;← sidecar Node.js (SQLite local)</div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="glass-card p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div style="width:10px;height:10px;background:#06b6d4;border-radius:50%;"></div>
+            <p class="text-slate-300 font-bold text-sm">flux-engine (Rust)</p>
+          </div>
+          <p class="text-slate-400 text-sm">Motor principal. Pipeline HTML/CSS/JS, seguridad, BM25 ranking, servidor Axum en :4000. Sin Node.js, sin Electron.</p>
+        </div>
+        <div class="glass-card p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div style="width:10px;height:10px;background:#2dd4bf;border-radius:50%;"></div>
+            <p class="text-slate-300 font-bold text-sm">UI React</p>
+          </div>
+          <p class="text-slate-400 text-sm">Chrome del browser en React + TypeScript + Tailwind. Corre en chrome_view (WebView2). Comunicación via IPC bidireccional con wry.</p>
+        </div>
+        <div class="glass-card p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <div style="width:10px;height:10px;background:#a78bfa;border-radius:50%;"></div>
+            <p class="text-slate-300 font-bold text-sm">flux-backend (Node.js)</p>
+          </div>
+          <p class="text-slate-400 text-sm">Sidecar Express + Prisma + SQLite en :3000. Gestiona historial, favoritos, auth JWT, Gemini IA. Distribuido como exe standalone.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Por qué esta arquitectura -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🤔</span>
+        Por qué esta arquitectura
+      </h2>
+      <p class="text-slate-400 text-sm mb-5">Los navegadores más exitosos no construyeron su propio motor de renderizado desde el día 1 — construyeron su valor por encima de uno existente:</p>
+      <div class="glass-card overflow-hidden mb-5">
+        <table class="flux-table">
+          <thead><tr><th>Browser</th><th>Valor real propio</th><th>Superficie de render</th></tr></thead>
+          <tbody>
+            <tr><td class="font-medium text-slate-300">Brave</td><td>Ad blocking · Rewards · Privacy</td><td class="text-slate-500">Chromium (Blink)</td></tr>
+            <tr><td class="font-medium text-slate-300">Arc</td><td>Spaces · AI · UX innovador</td><td class="text-slate-500">Chromium</td></tr>
+            <tr><td class="font-medium text-slate-300">Firefox Focus</td><td>Privacy core · Tracking protection</td><td class="text-slate-500">WebKit</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">Flux</td><td style="color:#2dd4bf;">Motor Rust propio · Search · Privacy · BM25 · JS sandbox · CSP</td><td class="text-slate-500">WebView2 / WebKit (provisional)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.2);border-radius:10px;padding:16px;">
+        <p class="text-slate-400 text-sm leading-relaxed"><span style="color:#06b6d4;font-weight:600;">El motor existe y funciona hoy.</span> Lo que falta es conectar el FluxSoftRenderer al <code style="font-size:11px;color:#2dd4bf;">content_view</code> de la ventana nativa — ese es el siguiente paso del roadmap. Cuando ese cable esté hecho, Flux será uno de los pocos browsers con motor de píxeles escrito en Rust.</p>
+      </div>
+    </section>
+
+    <!-- Motor Rust -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">⚙️</span>
+        flux-engine — Motor Rust
+      </h2>
+      <p class="text-slate-400 text-sm mb-5">El núcleo de Flux. Escrito completamente en Rust. No usa Electron, no usa Chromium, no usa código C++.</p>
+
+      <!-- Pipeline -->
+      <h3 class="text-white font-bold mb-3">Pipeline HTML/CSS/JS</h3>
+      <div class="glass-card p-6 mb-6">
+        <div style="font-family:monospace;font-size:12px;line-height:2;overflow-x:auto;background:rgba(2,6,23,0.7);border-radius:10px;padding:20px;">
+          <div style="color:#06b6d4;">URL</div>
+          <div style="color:#e2e8f0;">&nbsp;└→ <span style="color:#2dd4bf;">Fetcher</span> (reqwest + rustls)</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├→ SecurityLayer.check_url()</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · HTTPS upgrade (HSTS preload)</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · Ad/tracker block</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · CSP del servidor</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ HTML</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span style="color:#06b6d4;">Tokenizer</span> (zero-copy, &amp;str sin allocar)</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span style="color:#06b6d4;">Parser</span> (DOM arena — Vec&lt;Node&gt; + NodeId)</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├→ <span style="color:#2dd4bf;">CSS Cascade</span> (especificidad, herencia, UA stylesheet)</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├→ <span style="color:#a78bfa;">JS Runtime</span> (QuickJS sandbox)</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · DOM bindings completos</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · fetch() real HTTPS + CSP connect-src</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp; · 16 MB heap · 512 KB stack</div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span style="color:#2dd4bf;">Layout Engine</span></div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span style="color:#06b6d4;">Display List</span></div>
+          <div style="color:#e2e8f0;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span style="color:#06b6d4;">FluxSoftRenderer</span></div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Pixel buffer XRGB8888</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Glyph atlas (fontdue)</div>
+          <div style="color:#94a3b8;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; softbuffer (DXGI/Metal)</div>
+        </div>
+      </div>
+
+      <!-- Fases -->
+      <h3 class="text-white font-bold mb-3">Fases completadas</h3>
+      <div class="glass-card overflow-hidden mb-6">
+        <table class="flux-table">
+          <thead><tr><th>#</th><th>Componente</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr><td class="text-slate-500">1</td><td>Tokenizer zero-copy + Parser DOM arena</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">2</td><td>Style resolution + UA stylesheet completo</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">3</td><td>Inline layout + word wrapping + text-align</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">4</td><td>FluxSoftRenderer — pixel buffer real con fontdue</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">5</td><td>JavaScript con QuickJS — DOM bindings + fetch + eventos</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">6</td><td>Security layer — CSP + HTTPS-only + HSTS + ad blocker</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">7</td><td>Descargador de medios — yt-dlp bundleado con progreso en tiempo real</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">8</td><td>Mute por pestaña — control de audio vía IPC</td><td><span class="badge-stable">Completo</span></td></tr>
+            <tr><td class="text-slate-500">9</td><td>Conectar FluxSoftRenderer al content_view nativo</td><td><span class="badge-soon">Próximo</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Decisiones de memoria -->
+      <h3 class="text-white font-bold mb-3">Decisiones de memoria</h3>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Técnica</th><th>Beneficio</th></tr></thead>
+          <tbody>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">&amp;'a str</code> en tokens y DOM</td><td>0 copias del HTML fuente en memoria</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">Vec&lt;Node&gt;</code> arena + NodeId(usize)</td><td>Sin Box/Rc, cache-friendly, sin fragmentación de heap</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">SmallVec&lt;[Attr; 4]&gt;</code></td><td>Atributos en stack si son ≤ 4 — sin heap allocation</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">ComputedStyle</code> plano</td><td>Sin heap, cache-line friendly</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">LayoutBox</code> Vec contiguo</td><td>Sin overhead por nodo, iteración eficiente</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- IPC -->
+    <section id="ipc">
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🔌</span>
+        Referencia IPC
+      </h2>
+      <p class="text-slate-400 text-sm mb-5">Comunicación bidireccional entre la UI React y el motor Rust usando wry IPC. La UI envía comandos, el motor responde con eventos.</p>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Comando IPC</th><th>Dirección</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">navigate</code></td><td>UI → Rust</td><td>Navegar a una URL en el content_view</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">reload</code></td><td>UI → Rust</td><td>Recargar la página actual</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">go_back / go_forward</code></td><td>UI → Rust</td><td>Historial de navegación del WebView</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">zoom_in / zoom_out / zoom_reset</code></td><td>UI → Rust</td><td>Control de zoom de la página</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">minimize / maximize / close</code></td><td>UI → Rust</td><td>Control de la ventana nativa</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">chrome_height</code></td><td>UI → Rust</td><td>Ajuste dinámico de la altura del chrome</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">mute_tab</code></td><td>UI → Rust</td><td>Silenciar / activar audio de una pestaña</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">download_media</code></td><td>UI → Rust</td><td>Iniciar descarga con yt-dlp</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">download_progress</code></td><td>Rust → UI</td><td>Porcentaje, velocidad y bytes de la descarga activa</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">permission_request</code></td><td>Rust → UI</td><td>Solicitud de permiso (cámara, mic, geolocalización)</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">permission_response</code></td><td>UI → Rust</td><td>Respuesta del usuario al diálogo de permiso</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">url_changed</code></td><td>Rust → UI</td><td>La URL del content_view cambió (actualiza la barra)</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">page_title</code></td><td>Rust → UI</td><td>Título de la página cargada</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Backend -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🗄️</span>
+        flux-backend
+      </h2>
+      <p class="text-slate-400 text-sm mb-5">Backend Node.js + Express que gestiona los datos de usuario. Se distribuye como exe standalone — el usuario no necesita Node.js instalado.</p>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6 text-sm">
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">Runtime</p><p class="text-slate-300 font-medium">Node.js + TypeScript</p></div>
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">Framework</p><p class="text-slate-300 font-medium">Express 5</p></div>
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">ORM</p><p class="text-slate-300 font-medium">Prisma</p></div>
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">Base de datos</p><p class="text-slate-300 font-medium">SQLite (flux.db local)</p></div>
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">Auth</p><p class="text-slate-300 font-medium">JWT + bcrypt</p></div>
+        <div class="glass-card p-4"><p class="text-slate-500 text-xs mb-1">Distribución</p><p class="text-slate-300 font-medium">@yao-pkg/pkg → .exe</p></div>
+      </div>
+
+      <h3 class="text-white font-bold mb-3">Endpoints principales</h3>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Endpoint</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/search/web?q=</code></td><td>Búsqueda web via SearXNG + re-ranking Rust + boost por historial</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/search/summary?q=</code></td><td>Resumen IA de resultados via Gemini (requiere auth)</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/suggestions?q=</code></td><td>Autocompletado en barra de direcciones</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/news</code></td><td>Noticias en tiempo real vía RSS (BBC, TechCrunch, NASA, Al Jazeera)</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/weather?city=</code></td><td>Clima actual vía wttr.in</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">GET /api/trends</code></td><td>Tendencias de Google Trends vía RSS</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">POST /api/translation/translate</code></td><td>Traducción de texto (Gemini + fallback MyMemory)</td></tr>
+            <tr><td><code style="font-size:12px;color:#06b6d4;">POST /api/translation/detect</code></td><td>Detección de idioma</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Rust vs C++ -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🦀</span>
+        Seguridad por diseño — Rust vs C++
+      </h2>
+      <p class="text-slate-400 text-sm mb-5">El 70% de las vulnerabilidades de Chrome y Firefox son errores de memoria en C++. Rust los elimina en compile time.</p>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Vulnerabilidad</th><th>C/C++ (Chrome/Firefox)</th><th>Rust (Flux)</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="text-slate-300">Buffer overflow</td>
+              <td><span style="color:#f87171;">Posible</span></td>
+              <td><span style="color:#4ade80;">Imposible en safe Rust</span></td>
+            </tr>
+            <tr>
+              <td class="text-slate-300">Use-after-free</td>
+              <td><span style="color:#f87171;">Posible</span></td>
+              <td><span style="color:#4ade80;">Imposible — borrow checker</span></td>
+            </tr>
+            <tr>
+              <td class="text-slate-300">Null pointer</td>
+              <td><span style="color:#f87171;">Posible</span></td>
+              <td><span style="color:#4ade80;">Imposible — no hay null</span></td>
+            </tr>
+            <tr>
+              <td class="text-slate-300">Data races</td>
+              <td><span style="color:#f87171;">Posible</span></td>
+              <td><span style="color:#4ade80;">Imposible en compile time</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Compilar -->
+    <section>
+      <h2 class="text-2xl font-black text-white mb-6 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🔨</span>
+        Compilar desde el código fuente
+      </h2>
+      <div class="glass-card p-6 mb-4">
+        <p class="text-slate-400 text-sm mb-4">Requisitos: <span class="text-slate-300 font-medium">Rust 1.75+</span>, <span class="text-slate-300 font-medium">Node.js 18+</span>, <span class="text-slate-300 font-medium">Windows 10/11 con WebView2</span></p>
+        <div style="background:rgba(2,6,23,0.7);border-radius:10px;padding:18px;font-family:monospace;font-size:13px;line-height:2;">
+          <div style="color:#94a3b8;"># 1. Clonar</div>
+          <div style="color:#2dd4bf;">git clone https://github.com/tu-usuario/flux-browser.git</div>
+          <div style="color:#94a3b8;margin-top:6px;"># 2. Descargar yt-dlp (una sola vez)</div>
+          <div style="color:#2dd4bf;">.\scripts\download-yt-dlp.ps1</div>
+          <div style="color:#94a3b8;margin-top:6px;"># 3. Compilar el backend</div>
+          <div style="color:#2dd4bf;">.\scripts\build-backend.ps1</div>
+          <div style="color:#94a3b8;margin-top:6px;"># 4. Compilar el browser</div>
+          <div style="color:#2dd4bf;">cd flux-engine</div>
+          <div style="color:#2dd4bf;">cargo build --release --bin flux-browser</div>
+          <div style="color:#94a3b8;margin-top:6px;"># 5. Ejecutar el motor solo (demo píxeles)</div>
+          <div style="color:#06b6d4;">cargo run --bin flux-render</div>
+        </div>
+      </div>
+      <div class="glass-card p-5">
+        <p class="text-slate-400 text-sm mb-3"><span style="color:#06b6d4;font-weight:600;">Variables de entorno del backend</span> (flux-backend/.env)</p>
+        <div style="background:rgba(2,6,23,0.7);border-radius:8px;padding:14px;font-family:monospace;font-size:12px;line-height:1.9;">
+          <div style="color:#94a3b8;">DATABASE_URL=<span style="color:#2dd4bf;">file:./flux.db</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# SQLite local</div>
+          <div style="color:#94a3b8;">JWT_SECRET=<span style="color:#2dd4bf;">cambia_esto_por_un_secret_largo</span></div>
+          <div style="color:#94a3b8;">GEMINI_API_KEY=<span style="color:#2dd4bf;">tu_api_key_aqui</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# para IA, OCR, canciones</div>
+          <div style="color:#94a3b8;">PORT=<span style="color:#2dd4bf;">3000</span></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer style="background:rgba(2,6,23,0.95);border-top:1px solid rgba(6,182,212,0.1);" class="py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:28px;height:28px;border-radius:7px;" />
+        <span class="text-slate-500 text-sm">© 2026 Flux Browser — Gabriel Zapata</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="../index.html" class="footer-link">Inicio</a>
+        <a href="index.html" class="footer-link">Docs</a>
+        <a href="getting-started.html" class="footer-link">Primeros pasos</a>
+        <a href="features.html" class="footer-link">Características</a>
+        <a href="changelog.html" class="footer-link">Changelog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>

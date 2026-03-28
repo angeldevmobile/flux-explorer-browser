@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Características — Flux Browser</title>
+  <link rel="icon" type="image/png" href="../../assets/flux_logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../assets/css/flux.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="../index.html" class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:34px;height:34px;border-radius:9px;box-shadow:0 0 14px rgba(6,182,212,0.5);" />
+        <span style="font-size:19px;font-weight:800;background:linear-gradient(135deg,#06b6d4,#2dd4bf);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Flux Browser</span>
+        <span style="font-size:11px;color:#475569;font-weight:500;padding-left:4px;">/ Características</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="index.html" class="nav-link">Docs</a>
+        <a href="getting-started.html" class="nav-link">Primeros pasos</a>
+        <a href="architecture.html" class="nav-link">Arquitectura</a>
+        <a href="changelog.html" class="nav-link">Changelog</a>
+      </div>
+      <a href="../index.html#download" class="btn-primary px-4 py-2 rounded-lg text-sm font-bold text-slate-900 hidden md:inline-flex items-center gap-2">
+        <svg style="width:15px;height:15px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar
+      </a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="pt-32 pb-16 px-6" style="background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(6,182,212,0.12) 0%, transparent 60%), #020617;">
+    <div class="max-w-4xl mx-auto">
+      <a href="index.html" class="inline-flex items-center gap-2 text-slate-500 text-sm mb-8 hover:text-cyan-400 transition-colors">
+        <svg style="width:14px;height:14px" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Volver a Docs
+      </a>
+      <div class="section-label mb-5">Referencia completa</div>
+      <h1 class="text-5xl font-black mb-5 gradient-text-wide leading-tight">Características</h1>
+      <p class="text-slate-400 text-xl max-w-2xl">Cada funcionalidad de Flux explicada en detalle: desde el bloqueador de anuncios hasta la IA integrada.</p>
+    </div>
+  </section>
+
+  <!-- TOC -->
+  <div class="max-w-4xl mx-auto px-6 mb-12">
+    <div class="glass-card p-6">
+      <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-4">En esta página</p>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+        <a href="#security" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🛡️ Seguridad y privacidad</a>
+        <a href="#adblocker" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🚫 Bloqueador de anuncios</a>
+        <a href="#search" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🔍 Flux Search</a>
+        <a href="#ai" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🤖 Flux AI</a>
+        <a href="#downloads" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">⬇️ Descargas de medios</a>
+        <a href="#focus" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🎯 Modo enfoque</a>
+        <a href="#newtab" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">✨ Nueva pestaña</a>
+        <a href="#tools" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">🔧 Herramientas</a>
+        <a href="#data" class="text-slate-400 hover:text-cyan-400 transition-colors py-1">💾 Datos locales</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="max-w-4xl mx-auto px-6 pb-24 space-y-16">
+
+    <!-- Seguridad -->
+    <section id="security">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🛡️</span>
+        Seguridad y Privacidad
+        <span class="badge-stable">Activo</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Flux está diseñado desde cero con un modelo <strong class="text-slate-300">privacy-first y local-first</strong>. Ningún dato del usuario sale del dispositivo sin consentimiento explícito.</p>
+      <div class="glass-card overflow-hidden mb-5">
+        <table class="flux-table">
+          <thead><tr><th>Capa de protección</th><th>Qué hace</th></tr></thead>
+          <tbody>
+            <tr><td class="font-medium" style="color:#06b6d4;">HTTPS-only</td><td>Upgrade automático HTTP → HTTPS en todas las peticiones antes de cargar la página</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">HSTS preload</td><td>Lista embebida de 20+ dominios de alto tráfico que siempre usan HTTPS — sin primera petición insegura</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">CSP enforcement</td><td>Parseo y aplicación del Content-Security-Policy del servidor. Bloquea scripts inline no autorizados y fetch() fuera de connect-src</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">JS sandbox</td><td>QuickJS con 16 MB de heap y 512 KB de stack máximo — sin acceso al filesystem ni al SO</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">Permisos explícitos</td><td>Cámara, micrófono y geolocalización requieren confirmación del usuario via barra de permisos nativa</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">Sin telemetría</td><td>Flux no envía datos de uso, crashlogs ni métricas a ningún servidor externo</td></tr>
+            <tr><td class="font-medium" style="color:#06b6d4;">Rust sin memory bugs</td><td>Buffer overflows, use-after-free y null pointers son imposibles en safe Rust</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:10px;padding:14px 16px;">
+        <p class="text-sm text-slate-400"><span style="color:#2dd4bf;font-weight:600;">Lo que Flux NO hace (a diferencia de Chrome):</span> Sin cuenta obligatoria · Sin sincronización sin que lo actives · Sin historial de búsquedas en servidores externos · Sin fingerprinting de hardware · Sin extensiones de terceros con acceso a tus datos.</p>
+      </div>
+    </section>
+
+    <!-- Bloqueador -->
+    <section id="adblocker">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🚫</span>
+        Bloqueador de Anuncios
+        <span class="badge-stable">Estable</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Bloqueo integrado en el engine Rust. Sin extensiones externas. Sin overhead de proceso separado.</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-1">Capa 1 — Network</p>
+          <p class="text-slate-400 text-sm">Lista de ~40 dominios de rastreo y publicidad (EasyList/EasyPrivacy subset) integrada en el engine Rust. Las peticiones se bloquean antes de salir al network.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-1">Capa 2 — YouTube</p>
+          <p class="text-slate-400 text-sm">Parchea <code style="font-size:11px;color:#2dd4bf;">ytInitialPlayerResponse</code> para eliminar <code style="font-size:11px;color:#2dd4bf;">adPlacements</code>. CSS cosmético oculta overlays residuales.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-1">Capa 3 — Intercepción</p>
+          <p class="text-slate-400 text-sm">Intercepta <code style="font-size:11px;color:#2dd4bf;">fetch()</code> y XHR para bloquear URLs de tracking como <code style="font-size:11px;color:#2dd4bf;">/api/stats/ads</code> y <code style="font-size:11px;color:#2dd4bf;">/pagead/</code>.</p>
+        </div>
+      </div>
+      <p class="text-slate-500 text-sm">El panel de seguridad (<code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#06b6d4;">icono de escudo en la barra</code>) muestra cuántos trackers fueron bloqueados en la página actual.</p>
+    </section>
+
+    <!-- Flux Search -->
+    <section id="search">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🔍</span>
+        Flux Search
+        <span class="badge-stable">Estable</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Motor de búsqueda propio. Sin Google. Sin Bing. Resultados re-rankeados con BM25 propio y personalizados por tu historial de navegación.</p>
+      <div class="glass-card p-6 mb-5">
+        <p class="text-slate-400 text-sm mb-3">Flujo de búsqueda:</p>
+        <div style="font-family:monospace;font-size:12px;line-height:2;background:rgba(2,6,23,0.6);border-radius:8px;padding:16px;">
+          <span style="color:#06b6d4;">Usuario escribe</span> → flux://search?q=... <br/>
+          &nbsp;&nbsp;↓ <span class="text-slate-500">flux-backend (:3000)</span><br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2dd4bf;">SearXNG self-hosted (:8080)</span> si está disponible<br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#94a3b8;">DuckDuckGo</span> fallback automático<br/>
+          &nbsp;&nbsp;↓ <span class="text-slate-500">flux-engine (:4000)</span><br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a78bfa;">BM25 re-ranking</span> + boost por historial personal<br/>
+          &nbsp;&nbsp;↓ <span style="color:#06b6d4;">SearchPage React</span> — resultados con identidad Flux
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Autocompletado inteligente</p>
+          <p class="text-slate-400 text-sm">La barra de URL sugiere en tiempo real: historial personal, favoritos, búsquedas anteriores y URLs visitadas.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Caché de búsquedas</p>
+          <p class="text-slate-400 text-sm">TTL de 5 minutos en memoria. Repetir la misma búsqueda no golpea SearXNG ni el engine — respuesta instantánea.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Resumen IA</p>
+          <p class="text-slate-400 text-sm">Endpoint separado con Gemini que genera un resumen de los resultados sin bloquear la carga principal. Requiere API key.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Ranking personalizado</p>
+          <p class="text-slate-400 text-sm">Los sitios que visitas frecuentemente suben en los resultados de búsqueda — boost proporcional a frecuencia de visitas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Flux AI -->
+    <section id="ai">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🤖</span>
+        Flux AI
+        <span class="badge-stable">Estable</span>
+        <span style="font-size:11px;color:#475569;">Requiere Gemini API key</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Asistente IA integrado en el browser, consciente del contexto de navegación actual.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">Panel lateral flotante</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Abre un chat Gemini contextual que sabe qué página estás visitando. Puedes preguntarle sobre el contenido sin copiar y pegar. Renderizado Markdown con animación de escritura.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">Página completa flux://ai</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Interfaz de chat completa para conversaciones largas. Historial de conversaciones guardado en flux.db.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">Traductor integrado</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Traducción de texto a 15 idiomas via Gemini con fallback a MyMemory. Sin necesidad de otra API key o extensión externa.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">OCR — Texto desde imágenes</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Extrae texto de cualquier imagen en la página usando Gemini Vision. Útil para capturas de pantalla, diagramas o imágenes con texto.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">Detección de canciones</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Detecta qué canción está sonando en la pestaña activa usando Gemini Audio. Guarda las detecciones en el historial.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-cyan-400 font-bold text-sm mb-2">Resumen de búsquedas</p>
+          <p class="text-slate-400 text-sm leading-relaxed">Genera automáticamente un resumen de los resultados de búsqueda para que no tengas que abrir cada enlace.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Descargas -->
+    <section id="downloads">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">⬇️</span>
+        Descargador de Medios
+        <span class="badge-stable">Estable</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Descarga video y audio de cualquier página usando yt-dlp bundleado — sin instalación manual, sin extensiones externas.</p>
+      <div class="glass-card p-6 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p class="text-slate-300 font-semibold mb-1">Progreso en tiempo real</p>
+            <p class="text-slate-400">Porcentaje, velocidad de descarga y bytes descargados actualizados en tiempo real via IPC.</p>
+          </div>
+          <div>
+            <p class="text-slate-300 font-semibold mb-1">Formatos disponibles</p>
+            <p class="text-slate-400">MP4, WebM, MP3, AAC, Opus y más. Selecciona la calidad antes de descargar.</p>
+          </div>
+          <div>
+            <p class="text-slate-300 font-semibold mb-1">Historial de descargas</p>
+            <p class="text-slate-400">Todas las descargas quedan registradas en flux.db y accesibles desde <code style="font-size:11px;color:#06b6d4;">flux://downloads</code>.</p>
+          </div>
+        </div>
+      </div>
+      <p class="text-slate-500 text-sm"><code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 5px;font-size:11px;color:#06b6d4;">yt-dlp.exe</code> viene bundleado en la distribución de Flux — el usuario no necesita instalarlo por separado ni tener Python.</p>
+    </section>
+
+    <!-- Focus Mode -->
+    <section id="focus">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🎯</span>
+        Modo Enfoque
+        <span class="badge-stable">Estable</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Bloquea sitios distractores durante sesiones de trabajo. El modo enfoque persiste entre reinicios y registra el tiempo de sesión.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Lista de sitios bloqueados</p>
+          <p class="text-slate-400 text-sm">Añade cualquier dominio a la lista de bloqueo. Cuando intentas acceder durante una sesión activa, Flux te muestra una pantalla de bloqueo con el tiempo restante.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Sesiones de enfoque</p>
+          <p class="text-slate-400 text-sm">Las sesiones se registran en <code style="font-size:11px;color:#06b6d4;">FocusSession</code> en flux.db. Las estadísticas de uso muestran cuánto tiempo llevas enfocado.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Reader Mode</p>
+          <p class="text-slate-400 text-sm">Modo lectura que elimina la UI del browser y muestra solo el contenido de la página en una vista limpia y minimalista.</p>
+        </div>
+        <div class="glass-card p-5">
+          <p class="text-slate-300 font-semibold text-sm mb-2">Mute por pestaña</p>
+          <p class="text-slate-400 text-sm">Silencia el audio de cualquier pestaña individualmente via IPC — sin necesidad de bajar el volumen del sistema.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Nueva pestaña -->
+    <section id="newtab">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">✨</span>
+        Nueva Pestaña
+        <span class="badge-stable">Estable</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">La nueva pestaña de Flux es un dashboard de productividad, no una página en blanco.</p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="glass-card p-4 text-center">
+          <div class="text-2xl mb-2">🌤️</div>
+          <p class="text-slate-300 font-medium">Clima</p>
+          <p class="text-slate-500 text-xs">Widget en tiempo real via wttr.in</p>
+        </div>
+        <div class="glass-card p-4 text-center">
+          <div class="text-2xl mb-2">📰</div>
+          <p class="text-slate-300 font-medium">Noticias RSS</p>
+          <p class="text-slate-500 text-xs">BBC, TechCrunch, NASA, Al Jazeera</p>
+        </div>
+        <div class="glass-card p-4 text-center">
+          <div class="text-2xl mb-2">📈</div>
+          <p class="text-slate-300 font-medium">Tendencias</p>
+          <p class="text-slate-500 text-xs">Google Trends via RSS</p>
+        </div>
+        <div class="glass-card p-4 text-center">
+          <div class="text-2xl mb-2">🎤</div>
+          <p class="text-slate-300 font-medium">Búsqueda por voz</p>
+          <p class="text-slate-500 text-xs">Web Speech API nativa</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Herramientas -->
+    <section id="tools">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">🔧</span>
+        Herramientas adicionales
+      </h2>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Herramienta</th><th>Descripción</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr><td class="font-medium text-slate-300">View Source</td><td>Código fuente de la página actual en flux://view-source</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Dev Tools</td><td>Sección de herramientas de desarrollador integrada en el menú</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Modo incógnito por pestaña</td><td>Navegación privada por pestaña individual sin historial</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Estadísticas de uso</td><td>BrowsingStats, SiteVisit, HourlyActivity — dashboard de hábitos de navegación</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Grupos de tabs</td><td>Organiza pestañas en grupos con colores y nombres personalizados</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Split view</td><td>Panel lateral para ver dos páginas simultáneamente</td><td><span class="badge-stable">Estable</span></td></tr>
+            <tr><td class="font-medium text-slate-300">Sincronización entre dispositivos</td><td>UI lista en Settings — diferida para post-beta</td><td><span class="badge-soon">Próximamente</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Datos locales -->
+    <section id="data">
+      <h2 class="text-2xl font-black text-white mb-2 flex items-center gap-3">
+        <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 10px;font-size:16px;">💾</span>
+        Datos 100% locales
+        <span class="badge-stable">Siempre</span>
+      </h2>
+      <p class="text-slate-400 text-sm mb-6">Todo se guarda en <code style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);border-radius:4px;padding:1px 6px;font-size:12px;color:#06b6d4;">flux.db</code> — una base de datos SQLite en la misma carpeta del ejecutable.</p>
+      <div class="glass-card overflow-hidden">
+        <table class="flux-table">
+          <thead><tr><th>Qué se guarda</th><th>Dónde</th></tr></thead>
+          <tbody>
+            <tr><td>Historial de navegación</td><td>History (flux.db)</td></tr>
+            <tr><td>Favoritos / Bookmarks</td><td>Favorite (flux.db)</td></tr>
+            <tr><td>Pestañas y grupos</td><td>Tab / TabGroup (flux.db)</td></tr>
+            <tr><td>Preferencias y configuración</td><td>UserPreference (flux.db)</td></tr>
+            <tr><td>Notas y tareas rápidas</td><td>QuickNote / QuickTask (flux.db)</td></tr>
+            <tr><td>Historial de IA</td><td>AiConversation (flux.db)</td></tr>
+            <tr><td>Canciones detectadas</td><td>DetectedSong (flux.db)</td></tr>
+            <tr><td>Historial de descargas</td><td>MediaDownload (flux.db)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer style="background:rgba(2,6,23,0.95);border-top:1px solid rgba(6,182,212,0.1);" class="py-10 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="../../assets/flux_logo.png" alt="Flux Logo" style="width:28px;height:28px;border-radius:7px;" />
+        <span class="text-slate-500 text-sm">© 2026 Flux Browser — Gabriel Zapata</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="../index.html" class="footer-link">Inicio</a>
+        <a href="index.html" class="footer-link">Docs</a>
+        <a href="getting-started.html" class="footer-link">Primeros pasos</a>
+        <a href="architecture.html" class="footer-link">Arquitectura</a>
+        <a href="changelog.html" class="footer-link">Changelog</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>
