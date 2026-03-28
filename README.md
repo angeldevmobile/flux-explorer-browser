@@ -342,17 +342,29 @@ Motor de búsqueda propio integrado en el browser.
 Usuario escribe en barra → flux://search?q=...
         ↓
 flux-backend (:3000)
-  · Consulta SearXNG self-hosted (:8080) si está disponible
+  · Consulta SearXNG self-hosted (:8080) con &categories=general|images|videos
   · Fallback automático a DuckDuckGo si SearXNG no está activo
         ↓
-flux-engine (:4000)  POST /process
-  · fetch_and_extract() — descarga y parsea cada URL
-  · SecurityLayer — filtra URLs bloqueadas
-  · BM25 re-ranking
+  ┌─── Tab "Todo" ────────────────────────────────────────────────┐
+  │  flux-engine (:4000)  POST /process                          │
+  │    · fetch_and_extract() — descarga y parsea cada URL en     │
+  │      paralelo (Tokio multi-thread)                           │
+  │    · SecurityLayer — filtra URLs bloqueadas                  │
+  │    · BM25 re-ranking                                         │
+  │    · Boost por historial personal del usuario (auth opcional)│
+  └───────────────────────────────────────────────────────────────┘
+  ┌─── Tab "Imágenes" / "Videos" ─────────────────────────────────┐
+  │  SearXNG ya devuelve resultados completos (thumbnails, títulos)│
+  │  → respuesta directa, sin pasar por el engine                │
+  └───────────────────────────────────────────────────────────────┘
         ↓
 SearchPage (React)
-  · Resultados con identidad Flux
-  · Sin referencia a buscadores externos
+  · Tabs Todo / Imágenes / Videos centrados
+  · "Todo": lista de resultados con BM25 real
+  · "Imágenes": grid 4 columnas con thumbnails via proxy Rust
+  · "Videos": cards con thumbnail 16:9 + overlay play + descripción
+  · "¿Quisiste decir?" cuando la búsqueda no tiene resultados
+  · Skeletons específicos por tab (grid para imágenes, cards para videos)
 ```
 
 ### Endpoints del engine (Axum)
@@ -360,16 +372,18 @@ SearchPage (React)
 | Endpoint | Descripción |
 |---|---|
 | `POST /process` | Recibe `{ query, urls[] }` → descarga, extrae, rankea con BM25 |
+| `GET /render?url=` | Proxy HTML con SecurityLayer + reescritura de base href |
+| `GET /image?url=` | Proxy de imágenes zero-copy — bypass hotlink protection con Referer dinámico, Cache-Control 24h |
 | `GET /health` | Estado del engine |
 
 ### Endpoints del backend (Express)
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /api/search/web?q=` | Búsqueda web via SearXNG + re-ranking Rust + boost por historial personal (auth opcional) |
+| `GET /api/search/web?q=&category=&page=` | Búsqueda web via SearXNG. `category`: `general` (default) → pipeline Rust BM25, `images`/`videos` → directo sin engine. Auth opcional: boost por historial |
 | `GET /api/search/summary?q=` | Resumen IA de resultados via Gemini (requiere auth) |
 | `GET /api/search?q=` | Búsqueda en historial y favoritos del usuario |
-| `GET /api/suggestions?q=` | Autocompletado en barra de direcciones |
+| `GET /api/suggestions?q=` | Autocompletado en barra de direcciones + "¿Quisiste decir?" |
 | `POST /api/translation/translate` | Traducción de texto (Gemini + fallback MyMemory) |
 | `POST /api/translation/detect` | Detección de idioma |
 | `GET /api/news` | Noticias en tiempo real vía RSS (BBC, TechCrunch, NASA, Al Jazeera) |
@@ -595,6 +609,13 @@ docker compose up -d
 - [x] Re-ranking personalizado por historial del usuario (boost proporcional a frecuencia de visitas)
 - [x] Caché de búsquedas en memoria (TTL 5 min — evita golpear SearXNG + engine en repetidas búsquedas)
 - [x] Resumen IA de resultados (Gemini, endpoint separado — no bloquea los resultados principales)
+- [x] **Tabs Todo / Imágenes / Videos** — categorías reales vía `&categories=` de SearXNG
+- [x] **Búsqueda de imágenes** — grid 4 columnas, thumbnails reales, proxy Rust zero-copy con Referer dinámico
+- [x] **Búsqueda de videos** — cards con thumbnail 16:9, overlay play, descripción
+- [x] **Proxy de imágenes en Rust** (`GET /image`) — bypass hotlink protection, Cache-Control 24h, sin GC, Tokio multi-thread
+- [x] **"¿Quisiste decir?"** — sugerencia automática cuando la búsqueda no retorna resultados
+- [x] **Skeletons por tab** — grid para imágenes, cards para videos, lista para web
+- [x] **Fix 401 guest mode** — FavoritesContext espera resolución de auth antes de llamar a la API (evita race condition con token expirado)
 
 ### Backend + Persistencia
 
