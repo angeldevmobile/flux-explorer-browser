@@ -333,7 +333,8 @@ export const BrowserWindow = () => {
 					}}>
 					<div
 						className="flex items-end gap-0.5 flex-1 overflow-x-hidden"
-						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+						style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+						onMouseDown={(e) => e.stopPropagation()}>
 						{/* Tabs agrupadas */}
 						{tabGroups.map((group) => {
 							const groupTabs = tabs.filter((t) => t.groupId === group.id);
