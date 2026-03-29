@@ -336,7 +336,12 @@ fn find_backend() -> std::path::PathBuf {
 /// con funcionalidad reducida — sin historial/favoritos en base de datos).
 fn spawn_backend() -> Option<std::process::Child> {
     let backend_path = find_backend();
+    let backend_dir = backend_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .to_path_buf();
     match std::process::Command::new(&backend_path)
+        .current_dir(&backend_dir)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -777,7 +782,7 @@ fn make_content_view(
             position: tao::dpi::LogicalPosition::new(0.0_f64, 0.0_f64).into(),
             size:     tao::dpi::LogicalSize::new(0.0_f64, 0.0_f64).into(),
         })
-        .with_devtools(cfg!(debug_assertions))
+        .with_devtools(true)
         .with_navigation_handler(move |url: String| {
             if url.starts_with("about:")
                 || url.starts_with("flux://")
@@ -1214,7 +1219,7 @@ fn main() {
                 }
             }
         })
-        .with_devtools(cfg!(debug_assertions))
+        .with_devtools(true)
         .with_bounds(Rect {
             position: LogicalPosition::new(0.0, 0.0).into(),
             size: LogicalSize::new(init_w, init_h).into(),

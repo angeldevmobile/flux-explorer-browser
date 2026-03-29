@@ -9,13 +9,7 @@ use std::path::PathBuf;
 
 fn main() {
     // Embeber icono como recurso Windows → taskbar, Alt+Tab, explorador
-    {
-        let mut res = winres::WindowsResource::new();
-        res.set_icon("../assets/logo_flux.ico");
-        if let Err(e) = res.compile() {
-            println!("cargo:warning=winres: no se pudo embeber icono: {e}");
-        }
-    }
+    embed_resource::compile("../assets/flux_browser.rc", embed_resource::NONE);
 
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let bin_dir  = manifest.join("bin");

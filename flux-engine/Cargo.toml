@@ -39,7 +39,7 @@ rquickjs   = { version = "0.6", features = ["loader"] }
 
 [build-dependencies]
 # Embeber icono como recurso Windows (.exe icon, taskbar, Alt+Tab)
-winres = "0.1"
+embed-resource = "2"
 
 [[bin]]
 name = "flux-engine"
