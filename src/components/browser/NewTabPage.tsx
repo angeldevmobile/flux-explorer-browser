@@ -273,7 +273,7 @@ function useWeather() {
   const [data, setData] = useState<WeatherData | null>(null);
 
   useEffect(() => {
-    fetch("/api/weather")
+    fetch("http://localhost:3000/api/weather")
       .then((r) => r.json())
       .then((w) => {
         if (w.temp) setData(w as WeatherData);
@@ -289,7 +289,7 @@ function useNews() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/news")
+    fetch("http://localhost:3000/api/news")
       .then((r) => r.json())
       .then((data: NewsItem[]) => {
         if (Array.isArray(data) && data.length > 0) setNews(data);
@@ -306,7 +306,7 @@ function useTrends() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/trends")
+    fetch("http://localhost:3000/api/trends")
       .then((r) => r.json())
       .then((data: { title: string; traffic: string; link: string }[]) => {
         if (Array.isArray(data) && data.length > 0) {

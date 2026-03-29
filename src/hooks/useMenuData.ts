@@ -6,6 +6,7 @@ import {
   statsService,
   preferencesService,
 } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface MenuNote {
   id: string;
@@ -53,6 +54,7 @@ export interface UserPrefs {
 }
 
 export function useMenuData(isOpen: boolean) {
+  const { isAuthenticated } = useAuth();
   const [notes, setNotes] = useState<MenuNote[]>([]);
   const [tasks, setTasks] = useState<MenuTask[]>([]);
   const [blockedSites, setBlockedSites] = useState<BlockedSite[]>([]);
@@ -62,7 +64,7 @@ export function useMenuData(isOpen: boolean) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isAuthenticated) return;
 
     setLoading(true);
     Promise.all([

@@ -7,7 +7,8 @@ import { env } from "./env";
 // "flux://localhost" es el custom protocol que usa flux-browser.exe en producción.
 const allowedOrigins: string[] = [
   env.FRONTEND_URL,
-  "flux://localhost",   // producción: custom protocol del motor Rust
+  "flux://localhost",      // producción: custom protocol del motor Rust
+  "http://flux.localhost", // WebView2 sirve el frontend desde este origen
 ];
 if (env.NODE_ENV === "development") {
   allowedOrigins.push(
@@ -50,8 +51,9 @@ export function configureSecurity(app: Express): void {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Permitir peticiones sin origin (ej: el proceso Rust local, curl)
-        if (!origin) return callback(null, true);
+        // Permitir peticiones sin origin (curl, Rust local) y "null"
+        // (WebView2 envía Origin: null para custom protocols como flux://)
+        if (!origin || origin === "null") return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
         callback(new Error(`CORS bloqueado para origen: ${origin}`));
       },

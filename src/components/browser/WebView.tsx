@@ -39,7 +39,7 @@ const toProxyUrl = (u: string) => {
     const parsed = new URL(u);
     if (!["http:", "https:"].includes(parsed.protocol)) return u;
     // Path-based: /api/proxy/gemini.google/path — mejora resolución de rutas relativas en JS
-    return `/api/proxy/${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return `http://localhost:3000/api/proxy/${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return u;
   }

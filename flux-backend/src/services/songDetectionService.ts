@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import db from "../config/db";
+import crypto from "crypto";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -125,18 +126,16 @@ export class SongDetectionService {
   /**
    * Obtiene el historial de canciones detectadas de un usuario
    */
-  async getUserSongHistory(userId: string, prisma: PrismaClient) {
-    return prisma.detectedSong.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+  getUserSongHistory(userId: string) {
+    return db.prepare(
+      "SELECT * FROM DetectedSong WHERE userId = ? ORDER BY createdAt DESC LIMIT 50"
+    ).all(userId);
   }
 
   /**
    * Guarda una canción detectada
    */
-  async saveSong(data: {
+  saveSong(data: {
     title: string;
     artist: string;
     album?: string;
@@ -147,8 +146,13 @@ export class SongDetectionService {
     genre?: string;
     year?: string;
     userId: string;
-  }, prisma: PrismaClient) {
-    return prisma.detectedSong.create({ data });
+  }) {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO DetectedSong (id, title, artist, album, coverUrl, previewUrl, sourceUrl, confidence, genre, year, userId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(id, data.title, data.artist, data.album ?? null, data.coverUrl ?? null, data.previewUrl ?? null, data.sourceUrl, data.confidence, data.genre ?? null, data.year ?? null, data.userId, now);
+    return db.prepare("SELECT * FROM DetectedSong WHERE id = ?").get(id);
   }
 }
 

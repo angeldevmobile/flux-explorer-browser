@@ -1,31 +1,29 @@
 import { Response } from "express";
-import prisma from "../config/prisma";
+import db from "../config/db";
 import { AuthenticatedRequest } from "../types/authType";
+import crypto from "crypto";
 
 export class TabGroupController {
   static async getAll(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
-      const groups = await prisma.tabGroup.findMany({
-        where: { userId },
-        orderBy: { createdAt: "asc" },
-      });
+      const groups = db.prepare(
+        "SELECT * FROM TabGroup WHERE userId = ? ORDER BY createdAt ASC"
+      ).all(userId) as { id: string; name: string; color: string; collapsed: number; userId: string; createdAt: string }[];
 
-      // Obtener tabs con groupId para saber qué tabs están en cada grupo
-      const tabs = await prisma.tab.findMany({
-        where: { userId, groupId: { not: null } },
-        select: { id: true, groupId: true },
-      });
+      const tabs = db.prepare(
+        "SELECT id, groupId FROM Tab WHERE userId = ? AND groupId IS NOT NULL"
+      ).all(userId) as { id: string; groupId: string }[];
 
       const result = groups.map((g) => ({
         ...g,
+        collapsed: !!g.collapsed,
         tabIds: tabs.filter((t) => t.groupId === g.id).map((t) => t.id),
       }));
 
       res.json({ success: true, data: result });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ success: false, error: message });
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Unknown error" });
     }
   }
 
@@ -33,30 +31,27 @@ export class TabGroupController {
     try {
       const userId = req.userId!;
       const { name, color, tabIds } = req.body;
-
       if (!name || typeof name !== "string" || !color) {
         return res.status(400).json({ success: false, error: "name and color are required" });
       }
 
-      const group = await prisma.tabGroup.create({
-        data: { name: name.slice(0, 50), color, userId },
-      });
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      db.prepare(
+        "INSERT INTO TabGroup (id, name, color, userId, createdAt) VALUES (?, ?, ?, ?, ?)"
+      ).run(id, name.slice(0, 50), color, userId, now);
 
-      // Asignar tabs al grupo
       if (Array.isArray(tabIds) && tabIds.length > 0) {
-        await prisma.tab.updateMany({
-          where: { id: { in: tabIds }, userId },
-          data: { groupId: group.id },
-        });
+        const updateTab = db.prepare(
+          "UPDATE Tab SET groupId = ? WHERE id = ? AND userId = ?"
+        );
+        for (const tabId of tabIds) updateTab.run(id, tabId, userId);
       }
 
-      res.status(201).json({
-        success: true,
-        data: { ...group, tabIds: tabIds || [] },
-      });
+      const group = db.prepare("SELECT * FROM TabGroup WHERE id = ?").get(id) as Record<string, unknown>;
+      res.status(201).json({ success: true, data: { ...group, tabIds: tabIds || [] } });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ success: false, error: message });
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Unknown error" });
     }
   }
 
@@ -65,24 +60,15 @@ export class TabGroupController {
       const userId = req.userId!;
       const { groupId } = req.params;
       const { tabId } = req.body;
+      if (!tabId) return res.status(400).json({ success: false, error: "tabId is required" });
 
-      if (!tabId) {
-        return res.status(400).json({ success: false, error: "tabId is required" });
-      }
-
-      // Verificar que el grupo pertenece al usuario
-      const group = await prisma.tabGroup.findFirst({ where: { id: groupId, userId } });
+      const group = db.prepare("SELECT id FROM TabGroup WHERE id = ? AND userId = ?").get(groupId, userId);
       if (!group) return res.status(404).json({ success: false, error: "Group not found" });
 
-      await prisma.tab.updateMany({
-        where: { id: tabId, userId },
-        data: { groupId },
-      });
-
+      db.prepare("UPDATE Tab SET groupId = ? WHERE id = ? AND userId = ?").run(groupId, tabId, userId);
       res.json({ success: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ success: false, error: message });
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Unknown error" });
     }
   }
 
@@ -90,16 +76,10 @@ export class TabGroupController {
     try {
       const userId = req.userId!;
       const { tabId } = req.params;
-
-      await prisma.tab.updateMany({
-        where: { id: tabId, userId },
-        data: { groupId: null },
-      });
-
+      db.prepare("UPDATE Tab SET groupId = NULL WHERE id = ? AND userId = ?").run(tabId, userId);
       res.json({ success: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ success: false, error: message });
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Unknown error" });
     }
   }
 
@@ -107,22 +87,14 @@ export class TabGroupController {
     try {
       const userId = req.userId!;
       const { id } = req.params;
-
-      const group = await prisma.tabGroup.findFirst({ where: { id, userId } });
+      const group = db.prepare("SELECT id FROM TabGroup WHERE id = ? AND userId = ?").get(id, userId);
       if (!group) return res.status(404).json({ success: false, error: "Group not found" });
 
-      // Desagrupar tabs
-      await prisma.tab.updateMany({
-        where: { groupId: id, userId },
-        data: { groupId: null },
-      });
-
-      await prisma.tabGroup.delete({ where: { id } });
-
+      db.prepare("UPDATE Tab SET groupId = NULL WHERE groupId = ? AND userId = ?").run(id, userId);
+      db.prepare("DELETE FROM TabGroup WHERE id = ?").run(id);
       res.json({ success: true });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ success: false, error: message });
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Unknown error" });
     }
   }
 }

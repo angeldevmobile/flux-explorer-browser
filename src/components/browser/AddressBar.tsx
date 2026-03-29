@@ -327,7 +327,7 @@ export const AddressBar = ({
 		const fetchTrends = async () => {
 			setIsFetchingTrends(true);
 			try {
-				const res = await fetch("/api/trends");
+				const res = await fetch("http://localhost:3000/api/trends");
 				if (res.ok) {
 					const trends: GoogleTrend[] = await res.json();
 					const formattedTrends: SuggestionItem[] = trends
@@ -368,7 +368,7 @@ export const AddressBar = ({
 				let raw: string[] = [];
 
 				const res = await fetch(
-						`/api/suggestions?q=${encodeURIComponent(query.trim())}`,
+						`http://localhost:3000/api/suggestions?q=${encodeURIComponent(query.trim())}`,
 					);
 					const data = await res.json();
 					raw = data.suggestions ?? [];

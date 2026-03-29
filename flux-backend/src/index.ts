@@ -15,7 +15,7 @@ import historyRoutes from "./routes/historyRoutes";
 import voiceRoutes from "./routes/sync";
 import searchRoutes from "./routes/searchRoutes";
 import userRoutes from "./routes/users";
-import prisma from "./config/prisma";
+import db from "./config/db";
 import notesRoutes from "./routes/notesRoutes";
 import tasksRoutes from "./routes/taskRoutes";
 import focusRoutes from "./routes/focusRoutes";
@@ -35,16 +35,15 @@ import translationRoutes from "./routes/translationRoutes";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// El proxy debe registrarse ANTES de los body parsers globales para que
-// su propio middleware raw() lea el body sin restricciones de tamaño
-app.use("/api/proxy", proxyRoutes);
-
-// Body parsers (solo para las demás rutas)
+// Body parsers FIRST
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Seguridad (Helmet + CORS)
+// Seguridad (Helmet + CORS) - ANTES DEL PROXY
 configureSecurity(app);
+
+// El proxy se registra DESPUÉS de seguridad para que CORS se aplique
+app.use("/api/proxy", proxyRoutes);
 
 // Rate limiting global
 app.use(globalLimiter);
@@ -71,21 +70,20 @@ app.use("/api/trends", trendsRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/translation", translationRoutes);
+
+// DEBUG: Log todas las peticiones
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.path} - Origin: ${req.get('origin')}`);
+  next();
+});
+
 // Health Check
 app.get("/api/health", async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({
-      status: "Backend Orion funcionando",
-      database: "SQLite conectada",
-      timestamp: new Date().toISOString(),
-    });
+    db.prepare("SELECT 1").get();
+    res.json({ status: "Backend Orion funcionando", database: "SQLite conectada", timestamp: new Date().toISOString() });
   } catch (err) {
-    res.status(503).json({
-      status: "Backend Orion funcionando",
-      database: "SQLite desconectada",
-      timestamp: new Date().toISOString(),
-    });
+    res.status(503).json({ status: "Backend Orion funcionando", database: "SQLite desconectada", timestamp: new Date().toISOString() });
   }
 });
 
@@ -111,7 +109,7 @@ start().catch((err) => {
 });
 
 // Graceful Shutdown
-process.on("SIGINT", async () => {
-  await prisma.$disconnect();
+process.on("SIGINT", () => {
+  db.close();
   process.exit(0);
 });

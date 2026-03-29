@@ -1,21 +1,16 @@
 import { Response } from "express";
-import prisma from "../config/prisma";
+import db from "../config/db";
 import { AuthenticatedRequest } from "../middleware/auth";
+import crypto from "crypto";
 
 export class AiHistoryController {
   static async getHistory(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.userId!;
       const limit = Number(req.query.limit) || 50;
-
-      const conversations = await prisma.aiConversation.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        select: { id: true, query: true, response: true, createdAt: true },
-      });
-
-      res.json({ data: conversations });
+      const rows = db.prepare(
+        "SELECT id, query, response, createdAt FROM AiConversation WHERE userId = ? ORDER BY createdAt DESC LIMIT ?"
+      ).all(req.userId!, limit);
+      res.json({ data: rows });
     } catch {
       res.status(500).json({ error: "Error al obtener historial AI" });
     }
@@ -25,15 +20,15 @@ export class AiHistoryController {
     try {
       const userId = req.userId!;
       const { query, response } = req.body;
+      if (!query || !response) return res.status(400).json({ error: "query y response son requeridos" });
 
-      if (!query || !response) {
-        return res.status(400).json({ error: "query y response son requeridos" });
-      }
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      db.prepare(
+        "INSERT INTO AiConversation (id, query, response, userId, createdAt) VALUES (?, ?, ?, ?, ?)"
+      ).run(id, query, response, userId, now);
 
-      const conversation = await prisma.aiConversation.create({
-        data: { query, response, userId },
-      });
-
+      const conversation = db.prepare("SELECT * FROM AiConversation WHERE id = ?").get(id);
       res.status(201).json({ data: conversation });
     } catch {
       res.status(500).json({ error: "Error al guardar conversación AI" });
@@ -44,11 +39,9 @@ export class AiHistoryController {
     try {
       const userId = req.userId!;
       const { id } = req.params;
-
-      const existing = await prisma.aiConversation.findFirst({ where: { id, userId } });
+      const existing = db.prepare("SELECT id FROM AiConversation WHERE id = ? AND userId = ?").get(id, userId);
       if (!existing) return res.status(404).json({ error: "No encontrado" });
-
-      await prisma.aiConversation.delete({ where: { id } });
+      db.prepare("DELETE FROM AiConversation WHERE id = ?").run(id);
       res.json({ message: "Eliminado" });
     } catch {
       res.status(500).json({ error: "Error al eliminar" });
@@ -57,8 +50,7 @@ export class AiHistoryController {
 
   static async clearHistory(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.userId!;
-      await prisma.aiConversation.deleteMany({ where: { userId } });
+      db.prepare("DELETE FROM AiConversation WHERE userId = ?").run(req.userId!);
       res.json({ message: "Historial AI limpiado" });
     } catch {
       res.status(500).json({ error: "Error al limpiar historial AI" });

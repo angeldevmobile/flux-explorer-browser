@@ -1,194 +1,193 @@
-import { PrismaClient } from "@prisma/client";
+import db from "../config/db";
+import crypto from "crypto";
 
-const prisma = new PrismaClient();
-
-function todayDate() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export const statsService = {
-  async getTodayStats(userId: string) {
-    const date = todayDate();
-
-    let stats = await prisma.browsingStats.findUnique({
-      where: { date_userId: { date, userId } },
-    });
-
+  getTodayStats(userId: string) {
+    const date = todayStr();
+    let stats = db.prepare("SELECT * FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
     if (!stats) {
-      stats = await prisma.browsingStats.create({
-        data: { date, userId },
-      });
+      const id = crypto.randomUUID();
+      db.prepare("INSERT INTO BrowsingStats (id, date, userId) VALUES (?, ?, ?)").run(id, date, userId);
+      stats = db.prepare("SELECT * FROM BrowsingStats WHERE id = ?").get(id);
     }
-
     return stats;
   },
 
-  async incrementTrackers(userId: string, count: number = 1, dataSavedBytes: number = 0) {
-    const date = todayDate();
-    return prisma.browsingStats.upsert({
-      where: { date_userId: { date, userId } },
-      create: { date, userId, trackersBlocked: count, dataSavedBytes },
-      update: {
-        trackersBlocked: { increment: count },
-        dataSavedBytes: { increment: dataSavedBytes },
-      },
-    });
+  incrementTrackers(userId: string, count = 1, dataSavedBytes = 0) {
+    const date = todayStr();
+    const existing = db.prepare("SELECT id FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
+    if (existing) {
+      db.prepare(
+        "UPDATE BrowsingStats SET trackersBlocked = trackersBlocked + ?, dataSavedBytes = dataSavedBytes + ? WHERE date = ? AND userId = ?"
+      ).run(count, dataSavedBytes, date, userId);
+    } else {
+      db.prepare(
+        "INSERT INTO BrowsingStats (id, date, userId, trackersBlocked, dataSavedBytes) VALUES (?, ?, ?, ?, ?)"
+      ).run(crypto.randomUUID(), date, userId, count, dataSavedBytes);
+    }
+    return db.prepare("SELECT * FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
   },
 
-  async incrementMinutes(userId: string, minutes: number = 1) {
-    const date = todayDate();
-    return prisma.browsingStats.upsert({
-      where: { date_userId: { date, userId } },
-      create: { date, userId, minutesBrowsed: minutes },
-      update: { minutesBrowsed: { increment: minutes } },
-    });
+  incrementMinutes(userId: string, minutes = 1) {
+    const date = todayStr();
+    const existing = db.prepare("SELECT id FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
+    if (existing) {
+      db.prepare(
+        "UPDATE BrowsingStats SET minutesBrowsed = minutesBrowsed + ? WHERE date = ? AND userId = ?"
+      ).run(minutes, date, userId);
+    } else {
+      db.prepare(
+        "INSERT INTO BrowsingStats (id, date, userId, minutesBrowsed) VALUES (?, ?, ?, ?)"
+      ).run(crypto.randomUUID(), date, userId, minutes);
+    }
+    return db.prepare("SELECT * FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
   },
 
-  async recordSiteVisit(userId: string, domain: string, minutes: number = 1) {
-    const date = todayDate();
+  recordSiteVisit(userId: string, domain: string, minutes = 1) {
+    const date = todayStr();
 
-    // Registrar visita al sitio
-    const visit = await prisma.siteVisit.upsert({
-      where: { domain_userId_date: { domain, userId, date } },
-      create: { domain, userId, date, minutes },
-      update: { minutes: { increment: minutes } },
-    });
+    const existing = db.prepare(
+      "SELECT id FROM SiteVisit WHERE domain = ? AND userId = ? AND date = ?"
+    ).get(domain, userId, date);
+    if (existing) {
+      db.prepare(
+        "UPDATE SiteVisit SET minutes = minutes + ? WHERE domain = ? AND userId = ? AND date = ?"
+      ).run(minutes, domain, userId, date);
+    } else {
+      db.prepare(
+        "INSERT INTO SiteVisit (id, domain, userId, date, minutes) VALUES (?, ?, ?, ?, ?)"
+      ).run(crypto.randomUUID(), domain, userId, date, minutes);
+    }
 
-    // Incrementar sitesVisited (count de dominios únicos)
-    const uniqueSites = await prisma.siteVisit.count({
-      where: { userId, date },
-    });
+    const uniqueSites = (db.prepare(
+      "SELECT COUNT(DISTINCT domain) as c FROM SiteVisit WHERE userId = ? AND date = ?"
+    ).get(userId, date) as { c: number }).c;
 
-    await prisma.browsingStats.upsert({
-      where: { date_userId: { date, userId } },
-      create: { date, userId, sitesVisited: uniqueSites },
-      update: { sitesVisited: uniqueSites },
-    });
+    const statsExisting = db.prepare("SELECT id FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
+    if (statsExisting) {
+      db.prepare(
+        "UPDATE BrowsingStats SET sitesVisited = ? WHERE date = ? AND userId = ?"
+      ).run(uniqueSites, date, userId);
+    } else {
+      db.prepare(
+        "INSERT INTO BrowsingStats (id, date, userId, sitesVisited) VALUES (?, ?, ?, ?)"
+      ).run(crypto.randomUUID(), date, userId, uniqueSites);
+    }
 
-    // Registrar actividad horaria
     const hour = new Date().getHours();
-    await prisma.hourlyActivity.upsert({
-      where: { date_hour_userId: { date, hour, userId } },
-      create: { date, hour, userId, hits: 1 },
-      update: { hits: { increment: 1 } },
-    });
+    const hourExisting = db.prepare(
+      "SELECT id FROM HourlyActivity WHERE date = ? AND hour = ? AND userId = ?"
+    ).get(date, hour, userId);
+    if (hourExisting) {
+      db.prepare(
+        "UPDATE HourlyActivity SET hits = hits + 1 WHERE date = ? AND hour = ? AND userId = ?"
+      ).run(date, hour, userId);
+    } else {
+      db.prepare(
+        "INSERT INTO HourlyActivity (id, date, hour, userId, hits) VALUES (?, ?, ?, ?, 1)"
+      ).run(crypto.randomUUID(), date, hour, userId);
+    }
 
-    return visit;
+    return db.prepare("SELECT * FROM SiteVisit WHERE domain = ? AND userId = ? AND date = ?").get(domain, userId, date);
   },
 
-  async syncPrivacyStats(userId: string, trackersBlocked: number, dataSavedBytes: number) {
-    const date = todayDate();
-    return prisma.browsingStats.upsert({
-      where: { date_userId: { date, userId } },
-      create: { date, userId, trackersBlocked, dataSavedBytes },
-      update: { trackersBlocked, dataSavedBytes },
-    });
+  syncPrivacyStats(userId: string, trackersBlocked: number, dataSavedBytes: number) {
+    const date = todayStr();
+    const existing = db.prepare("SELECT id FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
+    if (existing) {
+      db.prepare(
+        "UPDATE BrowsingStats SET trackersBlocked = ?, dataSavedBytes = ? WHERE date = ? AND userId = ?"
+      ).run(trackersBlocked, dataSavedBytes, date, userId);
+    } else {
+      db.prepare(
+        "INSERT INTO BrowsingStats (id, date, userId, trackersBlocked, dataSavedBytes) VALUES (?, ?, ?, ?, ?)"
+      ).run(crypto.randomUUID(), date, userId, trackersBlocked, dataSavedBytes);
+    }
+    return db.prepare("SELECT * FROM BrowsingStats WHERE date = ? AND userId = ?").get(date, userId);
   },
 
-  async getTopSites(userId: string, limit = 5) {
-    const date = todayDate();
-    return prisma.siteVisit.findMany({
-      where: { userId, date },
-      orderBy: { minutes: "desc" },
-      take: limit,
-    });
+  getTopSites(userId: string, limit = 5) {
+    const date = todayStr();
+    return db.prepare(
+      "SELECT * FROM SiteVisit WHERE userId = ? AND date = ? ORDER BY minutes DESC LIMIT ?"
+    ).all(userId, date, limit);
   },
 
-  async getHourlyUsage(userId: string) {
-    const date = todayDate();
+  getHourlyUsage(userId: string) {
+    const date = todayStr();
+    const activities = db.prepare(
+      "SELECT hour, hits FROM HourlyActivity WHERE userId = ? AND date = ? ORDER BY hour ASC"
+    ).all(userId, date) as { hour: number; hits: number }[];
 
-    const activities = await prisma.hourlyActivity.findMany({
-      where: { userId, date },
-      orderBy: { hour: "asc" },
-    });
-
-    // Encontrar el máximo para calcular porcentajes relativos
     const maxHits = Math.max(1, ...activities.map((a) => a.hits));
-
     return Array.from({ length: 24 }, (_, i) => {
       const activity = activities.find((a) => a.hour === i);
-      return {
-        hour: i,
-        percentage: activity ? Math.round((activity.hits / maxHits) * 100) : 0,
-      };
+      return { hour: i, percentage: activity ? Math.round((activity.hits / maxHits) * 100) : 0 };
     });
   },
 
-  // ── Datos de los últimos N días ──
-  async getWeeklyStats(userId: string, days: number = 7) {
+  getWeeklyStats(userId: string, days = 7) {
     const now = new Date();
-    const dates: Date[] = [];
+    const dates: string[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      dates.push(d);
+      dates.push(d.toISOString().slice(0, 10));
     }
 
     const startDate = dates[0];
-    const endDate = todayDate();
+    const endDate = dates[dates.length - 1];
 
-    // Stats diarias
-    const dailyStats = await prisma.browsingStats.findMany({
-      where: { userId, date: { gte: startDate, lte: endDate } },
-      orderBy: { date: "asc" },
-    });
+    const dailyStats = db.prepare(
+      "SELECT * FROM BrowsingStats WHERE userId = ? AND date >= ? AND date <= ? ORDER BY date ASC"
+    ).all(userId, startDate, endDate) as { date: string; minutesBrowsed: number; sitesVisited: number; trackersBlocked: number }[];
 
-    // Top sites en el período
-    const topSitesPeriod = await prisma.siteVisit.groupBy({
-      by: ["domain"],
-      where: { userId, date: { gte: startDate, lte: endDate } },
-      _sum: { minutes: true },
-      orderBy: { _sum: { minutes: "desc" } },
-      take: 5,
-    });
+    const topSitesPeriod = db.prepare(
+      "SELECT domain, SUM(minutes) as totalMinutes FROM SiteVisit WHERE userId = ? AND date >= ? AND date <= ? GROUP BY domain ORDER BY totalMinutes DESC LIMIT 5"
+    ).all(userId, startDate, endDate) as { domain: string; totalMinutes: number }[];
 
-    // Detalle diario de los top 3 sites (para sparklines)
     const top3Domains = topSitesPeriod.slice(0, 3).map((s) => s.domain);
-    const siteDaily = top3Domains.length > 0
-      ? await prisma.siteVisit.findMany({
-          where: { userId, domain: { in: top3Domains }, date: { gte: startDate, lte: endDate } },
-          orderBy: { date: "asc" },
-        })
-      : [];
+    let siteDaily: { domain: string; date: string; minutes: number }[] = [];
+    if (top3Domains.length > 0) {
+      const placeholders = top3Domains.map(() => '?').join(',');
+      siteDaily = db.prepare(
+        `SELECT domain, date, minutes FROM SiteVisit WHERE userId = ? AND domain IN (${placeholders}) AND date >= ? AND date <= ? ORDER BY date ASC`
+      ).all(userId, ...top3Domains, startDate, endDate) as { domain: string; date: string; minutes: number }[];
+    }
 
-    // Construir timeline completo (rellenar días sin datos con 0)
     const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-    const timeline = dates.map((date) => {
-      const stat = dailyStats.find(
-        (s) => s.date.toISOString().slice(0, 10) === date.toISOString().slice(0, 10)
-      );
+    const timeline = dates.map((dateStr) => {
+      const stat = dailyStats.find((s) => s.date.slice(0, 10) === dateStr);
+      const d = new Date(dateStr + 'T12:00:00');
       return {
-        date: date.toISOString().slice(0, 10),
-        day: dayNames[date.getDay()],
+        date: dateStr,
+        day: dayNames[d.getDay()],
         minutes: stat?.minutesBrowsed || 0,
         sites: stat?.sitesVisited || 0,
         trackers: stat?.trackersBlocked || 0,
       };
     });
 
-    // Construir sparklines por sitio
     const topSitesWithTrend = top3Domains.map((domain) => {
-      const totalMinutes = topSitesPeriod.find((s) => s.domain === domain)?._sum.minutes || 0;
-      const trend = dates.map((date) => {
-        const visit = siteDaily.find(
-          (v) =>
-            v.domain === domain &&
-            v.date.toISOString().slice(0, 10) === date.toISOString().slice(0, 10)
-        );
+      const totalMinutes = topSitesPeriod.find((s) => s.domain === domain)?.totalMinutes || 0;
+      const trend = dates.map((dateStr) => {
+        const visit = siteDaily.find((v) => v.domain === domain && v.date.slice(0, 10) === dateStr);
         return visit?.minutes || 0;
       });
       return { domain, totalMinutes, trend };
     });
 
-    // Totales del período
-    const totalMinutes = timeline.reduce((a, b) => a + b.minutes, 0);
-    const totalSites = topSitesPeriod.length;
-    const totalTrackers = timeline.reduce((a, b) => a + b.trackers, 0);
-
     return {
       timeline,
       topSites: topSitesWithTrend,
-      totals: { minutes: totalMinutes, sites: totalSites, trackers: totalTrackers },
+      totals: {
+        minutes: timeline.reduce((a, b) => a + b.minutes, 0),
+        sites: topSitesPeriod.length,
+        trackers: timeline.reduce((a, b) => a + b.trackers, 0),
+      },
     };
   },
 };

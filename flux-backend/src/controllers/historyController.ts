@@ -1,107 +1,68 @@
 import { Response } from "express";
-import prisma from "../config/prisma";
+import db from "../config/db";
 import { AuthenticatedRequest } from "../middleware/auth";
-import { Prisma } from "@prisma/client";
+import crypto from "crypto";
 
 export class HistoryController {
-  /**
-   * GET /api/history - Obtener el historial del usuario
-   */
   static async getHistory(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
       const { search, limit = 50 } = req.query;
 
-      const where: Prisma.HistoryWhereInput = { userId };
-
-      // Búsqueda opcional
+      let rows;
       if (search) {
-        where.OR = [
-          { url: { contains: search as string } },
-          { title: { contains: search as string } },
-        ];
+        const term = `%${search}%`;
+        rows = db.prepare(
+          "SELECT * FROM History WHERE userId = ? AND (url LIKE ? OR title LIKE ?) ORDER BY timestamp DESC LIMIT ?"
+        ).all(userId, term, term, Number(limit));
+      } else {
+        rows = db.prepare(
+          "SELECT * FROM History WHERE userId = ? ORDER BY timestamp DESC LIMIT ?"
+        ).all(userId, Number(limit));
       }
-
-      const history = await prisma.history.findMany({
-        where,
-        orderBy: { timestamp: 'desc' },
-        take: Number(limit),
-      });
-
-      res.json({ data: history });
-    } catch (error) {
+      res.json({ data: rows });
+    } catch {
       res.status(500).json({ error: "Error al obtener historial" });
     }
   }
 
-  /**
-   * POST /api/history - Agregar entrada al historial
-   */
   static async addHistory(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
       const { url, title } = req.body;
+      if (!url || !title) return res.status(400).json({ error: "URL y título son requeridos" });
 
-      if (!url || !title) {
-        return res.status(400).json({ error: "URL y título son requeridos" });
-      }
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      db.prepare(
+        "INSERT INTO History (id, url, title, timestamp, userId) VALUES (?, ?, ?, ?, ?)"
+      ).run(id, url, title, now, userId);
 
-      const history = await prisma.history.create({
-        data: {
-          url,
-          title,
-          userId,
-        },
-      });
-
-      res.status(201).json({ 
-        message: "Historial actualizado",
-        data: history 
-      });
-    } catch (error) {
+      const history = db.prepare("SELECT * FROM History WHERE id = ?").get(id);
+      res.status(201).json({ message: "Historial actualizado", data: history });
+    } catch {
       res.status(500).json({ error: "Error al agregar historial" });
     }
   }
 
-  /**
-   * DELETE /api/history/:id - Eliminar entrada del historial
-   */
   static async deleteHistory(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
       const { id } = req.params;
-
-      const existing = await prisma.history.findFirst({
-        where: { id, userId },
-      });
-
-      if (!existing) {
-        return res.status(404).json({ error: "Entrada no encontrada" });
-      }
-
-      await prisma.history.delete({
-        where: { id },
-      });
-
+      const existing = db.prepare("SELECT id FROM History WHERE id = ? AND userId = ?").get(id, userId);
+      if (!existing) return res.status(404).json({ error: "Entrada no encontrada" });
+      db.prepare("DELETE FROM History WHERE id = ?").run(id);
       res.json({ message: "Entrada eliminada exitosamente" });
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: "Error al eliminar entrada" });
     }
   }
 
-  /**
-   * DELETE /api/history - Limpiar todo el historial
-   */
   static async clearHistory(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = req.userId!;
-
-      await prisma.history.deleteMany({
-        where: { userId },
-      });
-
+      db.prepare("DELETE FROM History WHERE userId = ?").run(req.userId!);
       res.json({ message: "Historial limpiado exitosamente" });
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: "Error al limpiar historial" });
     }
   }

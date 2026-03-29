@@ -1,33 +1,35 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import db from "../config/db";
+import crypto from "crypto";
 
 export const tasksService = {
-  async getAll(userId: string) {
-    return prisma.quickTask.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+  getAll(userId: string) {
+    return (db.prepare(
+      "SELECT * FROM QuickTask WHERE userId = ? ORDER BY createdAt DESC"
+    ).all(userId) as { id: string; text: string; completed: number; userId: string; createdAt: string; updatedAt: string }[])
+      .map(t => ({ ...t, completed: !!t.completed }));
   },
 
-  async create(userId: string, text: string) {
-    return prisma.quickTask.create({
-      data: { text, userId },
-    });
+  create(userId: string, text: string) {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO QuickTask (id, text, completed, userId, createdAt, updatedAt) VALUES (?, ?, 0, ?, ?, ?)"
+    ).run(id, text, userId, now, now);
+    const task = db.prepare("SELECT * FROM QuickTask WHERE id = ?").get(id) as { completed: number } & Record<string, unknown>;
+    return { ...task, completed: !!task.completed };
   },
 
-  async toggle(id: string, userId: string) {
-    const task = await prisma.quickTask.findFirst({ where: { id, userId } });
+  toggle(id: string, userId: string) {
+    const task = db.prepare("SELECT * FROM QuickTask WHERE id = ? AND userId = ?").get(id, userId) as { completed: number } & Record<string, unknown> | undefined;
     if (!task) throw new Error("Task not found");
-    return prisma.quickTask.update({
-      where: { id },
-      data: { completed: !task.completed },
-    });
+    const newVal = task.completed ? 0 : 1;
+    const now = new Date().toISOString();
+    db.prepare("UPDATE QuickTask SET completed = ?, updatedAt = ? WHERE id = ?").run(newVal, now, id);
+    const updated = db.prepare("SELECT * FROM QuickTask WHERE id = ?").get(id) as { completed: number } & Record<string, unknown>;
+    return { ...updated, completed: !!updated.completed };
   },
 
-  async delete(id: string, userId: string) {
-    return prisma.quickTask.deleteMany({
-      where: { id, userId },
-    });
+  delete(id: string, userId: string) {
+    return db.prepare("DELETE FROM QuickTask WHERE id = ? AND userId = ?").run(id, userId);
   },
 };

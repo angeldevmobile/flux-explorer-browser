@@ -1,44 +1,42 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import db from "../config/db";
+import crypto from "crypto";
 
 export const focusService = {
-  // --- Blocked Sites ---
-  async getBlockedSites(userId: string) {
-    return prisma.blockedSite.findMany({ where: { userId } });
+  getBlockedSites(userId: string) {
+    return db.prepare("SELECT * FROM BlockedSite WHERE userId = ?").all(userId);
   },
 
-  async addBlockedSite(userId: string, domain: string) {
-    return prisma.blockedSite.create({
-      data: { domain, userId },
-    });
+  addBlockedSite(userId: string, domain: string) {
+    const id = crypto.randomUUID();
+    db.prepare("INSERT INTO BlockedSite (id, domain, userId) VALUES (?, ?, ?)").run(id, domain, userId);
+    return db.prepare("SELECT * FROM BlockedSite WHERE id = ?").get(id);
   },
 
-  async removeBlockedSite(id: string, userId: string) {
-    return prisma.blockedSite.deleteMany({
-      where: { id, userId },
-    });
+  removeBlockedSite(id: string, userId: string) {
+    return db.prepare("DELETE FROM BlockedSite WHERE id = ? AND userId = ?").run(id, userId);
   },
 
-  // --- Focus Sessions ---
-  async startSession(userId: string, durationMs: number) {
-    return prisma.focusSession.create({
-      data: { durationMs, userId },
-    });
+  startSession(userId: string, durationMs: number) {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO FocusSession (id, durationMs, userId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)"
+    ).run(id, durationMs, userId, now, now);
+    const s = db.prepare("SELECT * FROM FocusSession WHERE id = ?").get(id) as Record<string, unknown>;
+    return { ...s, completed: !!s.completed };
   },
 
-  async endSession(id: string, userId: string, elapsedMs: number, completed: boolean) {
-    return prisma.focusSession.updateMany({
-      where: { id, userId },
-      data: { elapsedMs, completed },
-    });
+  endSession(id: string, userId: string, elapsedMs: number, completed: boolean) {
+    const now = new Date().toISOString();
+    return db.prepare(
+      "UPDATE FocusSession SET elapsedMs = ?, completed = ?, updatedAt = ? WHERE id = ? AND userId = ?"
+    ).run(elapsedMs, completed ? 1 : 0, now, id, userId);
   },
 
-  async getSessionHistory(userId: string, limit = 20) {
-    return prisma.focusSession.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
+  getSessionHistory(userId: string, limit = 20) {
+    return (db.prepare(
+      "SELECT * FROM FocusSession WHERE userId = ? ORDER BY createdAt DESC LIMIT ?"
+    ).all(userId, limit) as (Record<string, unknown> & { completed: number })[])
+      .map(s => ({ ...s, completed: !!s.completed }));
   },
 };

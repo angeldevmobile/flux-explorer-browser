@@ -1,5 +1,5 @@
 import { Response } from "express";
-import prisma from "../config/prisma";
+import db from "../config/db";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { searchWeb } from "../services/searxngService";
 import { geminiService } from "../services/geminiService";
@@ -22,30 +22,15 @@ export class SearchController {
       const searchTerm = q.trim();
 
       // Buscar en favoritos
-      const favorites = await prisma.favorite.findMany({
-        where: {
-          userId,
-          OR: [
-            { url: { contains: searchTerm } },
-            { title: { contains: searchTerm } },
-          ],
-        },
-        take: 10,
-        orderBy: { createdAt: "desc" },
-      });
+      const term = `%${searchTerm}%`;
+      const favorites = db.prepare(
+        "SELECT * FROM Favorite WHERE userId = ? AND (url LIKE ? OR title LIKE ?) ORDER BY createdAt DESC LIMIT 10"
+      ).all(userId, term, term);
 
       // Buscar en historial
-      const history = await prisma.history.findMany({
-        where: {
-          userId,
-          OR: [
-            { url: { contains: searchTerm } },
-            { title: { contains: searchTerm } },
-          ],
-        },
-        take: 20,
-        orderBy: { timestamp: "desc" },
-      });
+      const history = db.prepare(
+        "SELECT * FROM History WHERE userId = ? AND (url LIKE ? OR title LIKE ?) ORDER BY timestamp DESC LIMIT 20"
+      ).all(userId, term, term);
 
       res.json({
         data: {
@@ -116,15 +101,13 @@ export class SearchController {
       let historyBoost = new Map<string, number>();
       if (req.userId) {
         const visitedUrls = orionData.results.map((r) => r.url);
-        const historyMatches = await prisma.history.groupBy({
-          by: ["url"],
-          where: { userId: req.userId, url: { in: visitedUrls } },
-          _count: { url: true },
-        });
-        // Normaliza visitas a un boost máximo de 0.3
-        const maxVisits = Math.max(...historyMatches.map((h) => h._count.url), 1);
+        const placeholders = visitedUrls.map(() => '?').join(',');
+        const historyMatches = db.prepare(
+          `SELECT url, COUNT(*) as cnt FROM History WHERE userId = ? AND url IN (${placeholders}) GROUP BY url`
+        ).all(req.userId!, ...visitedUrls) as { url: string; cnt: number }[];
+        const maxVisits = Math.max(...historyMatches.map((h) => h.cnt), 1);
         for (const h of historyMatches) {
-          historyBoost.set(h.url, (h._count.url / maxVisits) * 0.3);
+          historyBoost.set(h.url, (h.cnt / maxVisits) * 0.3);
         }
       }
 

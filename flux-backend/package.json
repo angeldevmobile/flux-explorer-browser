@@ -5,17 +5,13 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "build:exe": "npm run build && pkg dist/index.js --target node18-win-x64 --output ../flux-engine/bin/flux-backend.exe --assets \"node_modules/.prisma/client/query_engine*\"",
+    "build:exe": "npm run build && pkg dist/index.js --target node22-win-x64 --output ../flux-engine/bin/flux-backend.exe",
     "start": "node dist/index.js",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate",
-    "prisma:studio": "prisma studio"
+    "postbuild:exe": "node -e \"const fs=require('fs'),src='node_modules/better-sqlite3/build/Release/better_sqlite3.node',dst='../flux-engine/bin/better_sqlite3.node';if(fs.existsSync(src)){fs.copyFileSync(src,dst);console.log('Copied better_sqlite3.node');}else{console.warn('better_sqlite3.node not found at',src);}\""
   },
   "pkg": {
     "assets": [
-      "node_modules/.prisma/client/query_engine*",
-      "node_modules/@prisma/client/**/*.node",
-      "node_modules/prisma/build/index.js"
+      "node_modules/better-sqlite3/build/Release/*.node"
     ],
     "scripts": [
       "dist/**/*.js"
@@ -28,9 +24,8 @@
   "dependencies": {
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/generative-ai": "^0.24.1",
-    "@prisma/client": "^6.19.1",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
@@ -40,13 +35,12 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^4.17.25",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.16.5",
     "@yao-pkg/pkg": "^5.12.0",
-    "prisma": "^6.19.1",
     "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   }

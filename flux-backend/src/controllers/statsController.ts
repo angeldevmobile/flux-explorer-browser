@@ -6,15 +6,14 @@ export const statsController = {
   async getTodayStats(req: AuthenticatedRequest, res: Response) {
     try {
       const userId = req.userId!;
-      const stats = await statsService.getTodayStats(userId);
-      const topSites = await statsService.getTopSites(userId);
-      const hourlyUsage = await statsService.getHourlyUsage(userId);
+      const stats = statsService.getTodayStats(userId) as Record<string, unknown>;
+      const topSites = statsService.getTopSites(userId);
+      const hourlyUsage = statsService.getHourlyUsage(userId);
 
       res.json({
         success: true,
         data: {
           ...stats,
-          dataSavedBytes: stats.dataSavedBytes.toString(),
           topSites,
           hourlyUsage,
         },
