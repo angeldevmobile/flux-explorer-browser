@@ -782,7 +782,7 @@ fn make_content_view(
             position: tao::dpi::LogicalPosition::new(0.0_f64, 0.0_f64).into(),
             size:     tao::dpi::LogicalSize::new(0.0_f64, 0.0_f64).into(),
         })
-        .with_devtools(true)
+        .with_devtools(cfg!(debug_assertions))
         .with_navigation_handler(move |url: String| {
             if url.starts_with("about:")
                 || url.starts_with("flux://")
@@ -1219,7 +1219,7 @@ fn main() {
                 }
             }
         })
-        .with_devtools(true)
+        .with_devtools(cfg!(debug_assertions))
         .with_bounds(Rect {
             position: LogicalPosition::new(0.0, 0.0).into(),
             size: LogicalSize::new(init_w, init_h).into(),

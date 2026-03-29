@@ -175,7 +175,6 @@ export const WebView = ({
     // ── Capturar la URL real tras navegación interna ──
     const handleDidNavigate = (e: Event) => {
       const navUrl = (e as Event & { url: string }).url;
-      console.log("[WebView] did-navigate →", navUrl);
       if (navUrl) {
         internalNavUrl.current = navUrl;
         onUrlChangeRef.current?.(navUrl);
@@ -184,17 +183,12 @@ export const WebView = ({
 
     const handleDidNavigateInPage = (e: Event) => {
       const navUrl = (e as Event & { url: string }).url;
-      console.log("[WebView] did-navigate-in-page →", navUrl);
       if (navUrl) {
         internalNavUrl.current = navUrl;
         onUrlChangeRef.current?.(navUrl);
       }
     };
 
-    const handleWillNavigate = (e: Event) => {
-      const navUrl = (e as Event & { url: string }).url;
-      console.log("[WebView] will-navigate →", navUrl);
-    };
 
     const handleError = (e: Event) => {
       // ERR_ABORTED (-3) ocurre en navegación normal (redirects), ignorarlo
@@ -228,7 +222,6 @@ export const WebView = ({
     webview.addEventListener("page-favicon-updated", handleFaviconUpdated);
     webview.addEventListener("did-navigate", handleDidNavigate);
     webview.addEventListener("did-navigate-in-page", handleDidNavigateInPage);
-    webview.addEventListener("will-navigate", handleWillNavigate);
     webview.addEventListener("did-fail-load", handleError);
     webview.addEventListener("crashed", handleCrashed);
 
@@ -243,7 +236,6 @@ export const WebView = ({
       webview.removeEventListener("page-favicon-updated", handleFaviconUpdated);
       webview.removeEventListener("did-navigate", handleDidNavigate);
       webview.removeEventListener("did-navigate-in-page", handleDidNavigateInPage);
-      webview.removeEventListener("will-navigate", handleWillNavigate);
       webview.removeEventListener("did-fail-load", handleError);
       webview.removeEventListener("crashed", handleCrashed);
     };

@@ -34,22 +34,27 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
   }, [isAuthenticated, authLoading]);
 
   const addFavorite = useCallback(async (favorite: Omit<Favorite, "id">) => {
+    if (!isAuthenticated) {
+      toast({ title: "Inicia sesión", description: "Crea una cuenta o inicia sesión para guardar favoritos", variant: "destructive" });
+      return;
+    }
     try {
       const saved = await favoriteService.addFavorite(favorite);
       setFavorites((prev) => [...prev, { id: saved.id, title: saved.title, url: saved.url, icon: saved.icon || undefined }]);
     } catch (error) {
       toast({ title: "Error", description: extractApiError(error, "No se pudo guardar el favorito"), variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, isAuthenticated]);
 
   const removeFavorite = useCallback(async (id: string) => {
+    if (!isAuthenticated) return;
     setFavorites((f) => f.filter((fav) => fav.id !== id));
     try {
       await favoriteService.deleteFavorite(id);
     } catch (error) {
       toast({ title: "Error", description: extractApiError(error, "No se pudo eliminar el favorito"), variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast, isAuthenticated]);
 
   const isFavorite = useCallback((url: string) => favorites.some((f) => f.url === url), [favorites]);
   const getFavoriteByUrl = useCallback((url: string) => favorites.find((f) => f.url === url), [favorites]);

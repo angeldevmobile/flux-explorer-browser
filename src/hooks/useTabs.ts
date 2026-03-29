@@ -46,7 +46,6 @@ export function useTabs() {
 					if (!tab.url.startsWith("http")) return tab;
 					const idle = Date.now() - (tab.lastActiveAt ?? 0);
 					if (idle > DISCARD_AFTER_MS) {
-						console.log(`[TabDiscard] Liberando RAM: "${tab.title}"`);
 						return { ...tab, discarded: true };
 					}
 					return tab;

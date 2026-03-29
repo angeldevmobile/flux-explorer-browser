@@ -33,6 +33,8 @@ import { SecurityPanel } from "@/components/browser/SecurityPanel";
 import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/hooks/useFavorite";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 /* ═══════════════════════════════════════════
    TYPES
@@ -248,6 +250,9 @@ export const AddressBar = ({
 
 	const { addFavorite, removeFavorite, isFavorite, favorites } = useFavorites();
 	const { toast } = useToast();
+	const { isAuthenticated, isGuest, user, logout } = useAuth();
+	const navigate = useNavigate();
+	const [showUserMenu, setShowUserMenu] = useState(false);
 
 	const isCurrentFavorite = isFavorite(url);
 	const securityInfo = getSecurityLevel(url, isSecure);
@@ -916,6 +921,53 @@ export const AddressBar = ({
 								)}
 							</Button>
 						)}
+
+						{/* Account */}
+						<div className="relative">
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => {
+									if (!isAuthenticated || isGuest) {
+										navigate("/login");
+									} else {
+										setShowUserMenu((v) => !v);
+									}
+								}}
+								className="h-8 w-8 rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-300 hover:bg-white/[0.06]"
+								title={isAuthenticated && !isGuest ? `Cuenta: ${user?.username}` : "Iniciar sesión"}>
+								{isAuthenticated && !isGuest ? (
+									<div className="h-5 w-5 rounded-full bg-gradient-to-br from-cyan-500 to-teal-400 flex items-center justify-center text-[9px] font-bold text-white uppercase">
+										{user?.username?.[0] ?? "U"}
+									</div>
+								) : (
+									<svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+										<circle cx="12" cy="8" r="4" />
+										<path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+									</svg>
+								)}
+							</Button>
+
+							{/* User menu */}
+							{showUserMenu && isAuthenticated && !isGuest && (
+								<div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-2xl bg-[#0d1117] border border-white/[0.08] shadow-2xl shadow-black/40 overflow-hidden p-3 space-y-1">
+									<p className="text-[10px] uppercase tracking-wider text-slate-600 font-bold px-2 mb-2">
+										{user?.username}
+									</p>
+									<button
+										onClick={() => { logout(); setShowUserMenu(false); }}
+										className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-white/[0.04] transition-all text-left">
+										<svg className="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+											<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+											<polyline points="16 17 21 12 16 7" />
+											<line x1="21" y1="12" x2="9" y2="12" />
+										</svg>
+										<span className="text-sm text-slate-300">Cerrar sesión</span>
+									</button>
+								</div>
+							)}
+						</div>
 					</div>
 				</div>
 
