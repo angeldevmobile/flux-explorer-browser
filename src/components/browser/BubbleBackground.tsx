@@ -93,7 +93,8 @@ export function BubbleBackground({ colorFrom, colorTo }: BubbleBackgroundProps) 
     const rgb0 = hexToRgb(colorsRef.current.from);
     const rgb1 = hexToRgb(colorsRef.current.to);
 
-    bubblesRef.current = Array.from({ length: 20 }, (_, i) => {
+    // 12 bubbles instead of 20 — reduces GPU load ~40%
+    bubblesRef.current = Array.from({ length: 12 }, (_, i) => {
       const rgb = i % 2 === 0 ? rgb0 : rgb1;
       return createBubble(
         Math.random() * w,
@@ -175,10 +176,20 @@ export function BubbleBackground({ colorFrom, colorTo }: BubbleBackgroundProps) 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("click", onClick);
 
-    /* Animation loop */
+    /* Animation loop — throttled to ~30fps to reduce GPU usage */
     let lastTime = performance.now();
+    let frameCount = 0;
+    const pausedRef = { current: false };
 
     const animate = (now: number) => {
+      if (pausedRef.current) return;
+
+      animRef.current = requestAnimationFrame(animate);
+
+      // Skip every other frame → ~30fps
+      frameCount++;
+      if (frameCount % 2 !== 0) return;
+
       const rawDt = now - lastTime;
       lastTime = now;
       // clamp dt to avoid huge jumps on tab-switch
@@ -251,16 +262,28 @@ export function BubbleBackground({ colorFrom, colorTo }: BubbleBackgroundProps) 
         }
       }
 
-      animRef.current = requestAnimationFrame(animate);
     };
 
     animRef.current = requestAnimationFrame(animate);
+
+    // Pause when browser tab is hidden to free GPU
+    const onVisibility = () => {
+      pausedRef.current = document.hidden;
+      if (!document.hidden) {
+        lastTime = performance.now();
+        animRef.current = requestAnimationFrame(animate);
+      } else if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("click", onClick);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [initBubbles, handleSplit]);
 

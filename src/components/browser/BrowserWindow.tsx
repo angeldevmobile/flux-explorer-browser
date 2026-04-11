@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Menu, Globe } from "lucide-react";
 import { BrowserTab } from "./BrowserTab";
 import { AddressBar } from "./AddressBar";
@@ -72,6 +72,14 @@ export const BrowserWindow = () => {
 
 	// ── UI state local ──
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+	// Notifica a Rust para expandir chrome_view a pantalla completa cuando el menú
+	// está abierto (el native content_view quedaría debajo del overlay del menú).
+	const setMenuOpen = useCallback((open: boolean) => {
+		setIsMenuOpen(open);
+		const ipc = (window as unknown as { ipc?: { postMessage: (m: string) => void } }).ipc;
+		ipc?.postMessage(JSON.stringify({ cmd: "menu_overlay", active: open }));
+	}, []);
 	const [currentZoom, setCurrentZoom] = useState(100);
 
 	const handleZoomChange = (level: number) => {
@@ -430,7 +438,7 @@ export const BrowserWindow = () => {
 						onBack={handleBack}
 						onForward={handleForward}
 						onHome={() => handleNavigate("flux://welcome")}
-						onMenu={() => setIsMenuOpen(!isMenuOpen)}
+						onMenu={() => setMenuOpen(!isMenuOpen)}
 					/>
 
 					<div className="flex-1 min-w-0">
@@ -452,7 +460,7 @@ export const BrowserWindow = () => {
 						<DownloadsPanel onNavigate={handleNavigate} />
 						<ThemeSelector />
 						<button
-							onClick={() => setIsMenuOpen(!isMenuOpen)}
+							onClick={() => setMenuOpen(!isMenuOpen)}
 							className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all duration-200 border ${
 								isMenuOpen
 									? "bg-primary/15 text-primary border-primary/20"
@@ -730,12 +738,12 @@ export const BrowserWindow = () => {
 			{/* ═══ Browser Menu (overlay) ═══ */}
 			<BrowserMenu
 				isOpen={isMenuOpen}
-				onClose={() => setIsMenuOpen(false)}
-				onNavigate={(url) => {
-					handleNavigate(url);
-					setIsMenuOpen(false);
-				}}
-				onNewTab={() => { handleNewTab(privacyMode); setIsMenuOpen(false); }}
+			onClose={() => setMenuOpen(false)}
+			onNavigate={(url) => {
+				handleNavigate(url);
+				setMenuOpen(false);
+			}}
+			onNewTab={() => { handleNewTab(privacyMode); setMenuOpen(false); }}
 				currentUrl={activeTab?.url || ""}
 				currentTitle={activeTab?.title}
 				currentZoom={currentZoom}
@@ -749,8 +757,8 @@ export const BrowserWindow = () => {
 					setFocusBlockedSites(sites);
 					setFocusTimeRemaining(timeRemaining);
 				}}
-				onSplitView={() => { handleSplitView(); setIsMenuOpen(false); }}
-				onSidePanel={() => { handleSidePanel(); setIsMenuOpen(false); }}
+			onSplitView={() => { handleSplitView(); setMenuOpen(false); }}
+			onSidePanel={() => { handleSidePanel(); setMenuOpen(false); }}
 				onTabGroups={() => {}}
 				workspaceMode={workspaceMode}
 				tabGroups={tabGroups}
@@ -762,11 +770,11 @@ export const BrowserWindow = () => {
 				onDeleteGroup={handleDeleteGroup}
 				onSelectTab={(tabId: string) => {
 					setActiveTabId(tabId);
-					setIsMenuOpen(false);
+					setMenuOpen(false);
 				}}
 				onReopenGroupTab={(groupId, index) => {
 					handleReopenGroupTab(groupId, index);
-					setIsMenuOpen(false);
+					setMenuOpen(false);
 				}}
 				onRemoveSavedTab={handleRemoveSavedTab}
 			/>

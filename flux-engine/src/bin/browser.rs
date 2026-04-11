@@ -155,83 +155,141 @@ const USER_AGENT: &str =
      (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OrionBrowser/0.1";
 
 /// Script de bloqueo de anuncios inyectado en cada página antes de que cargue
-/// cualquier script del sitio. Actualmente cubre YouTube con tres capas:
-///   1. Parchea ytInitialPlayerResponse para eliminar adPlacements/playerAds
-///   2. CSS cosmético para ocultar elementos residuales de anuncios
-///   3. Intercepta fetch/XHR para bloquear peticiones de tracking de anuncios
+/// cualquier script del sitio. Cubre todos los sitios con cuatro capas:
+///   1. CSS cosmético universal (AdSense, DoubleClick, YouTube, etc.)
+///   2. Intercepta fetch/XHR para bloquear peticiones de redes de anuncios
+///   3. YouTube: parchea ytInitialPlayerResponse para eliminar adPlacements
+///   4. YouTube: MutationObserver + setInterval para auto‑saltar anuncios
 const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   'use strict';
 
-  /* ── YouTube Ad Blocker ─────────────────────────────────── */
-  if (!location.hostname.includes('youtube.com')) return;
-
-  // 1. Patch ytInitialPlayerResponse — elimina anuncios del objeto del player
-  //    Se ejecuta ANTES que los scripts de YouTube, así que el setter
-  //    intercepta el valor cuando YouTube lo asigna.
-  var _ytIPR;
-  function _stripYtAds(v) {
-    if (v && typeof v === 'object') {
-      v.adPlacements             = [];
-      v.playerAds                = [];
-      v.adSlots                  = [];
-      v.adBreakHeartbeatParams   = undefined;
-    }
-    return v;
-  }
-  Object.defineProperty(window, 'ytInitialPlayerResponse', {
-    get: function() { return _ytIPR; },
-    set: function(v) { _ytIPR = _stripYtAds(v); },
-    configurable: true,
-  });
-
-  // 2. CSS cosmético — oculta elementos residuales de anuncios
-  var _adStyle = document.createElement('style');
-  _adStyle.textContent = [
-    '.ad-showing .video-ads',
-    '.ad-interrupting',
+  /* ── 1. CSS cosmético universal ─────────────────────────────── */
+  var _cssRules = [
+    /* Genérico / redes de anuncios */
+    '[id*="ad-slot"]', '[id*="google_ads"]',
+    '[class*="ad-banner"]', '[class*="ad-container"]',
+    '[data-ad-slot]', '[data-ad-unit]',
+    'ins.adsbygoogle',
+    'iframe[src*="doubleclick"]',
+    'iframe[src*="googlesyndication"]',
+    'iframe[src*="googleadservices"]',
+    'div[id*="AdDiv"]', 'div[id*="ad_unit"]',
+    /* YouTube */
     '#player-ads',
     '.ytp-ad-module',
     '.ytp-ad-overlay-container',
     '.ytp-ad-text-overlay',
+    '.ytp-ad-image-overlay',
+    '.ytp-ad-player-overlay-layout',
+    '.ytp-ad-player-overlay-instream-info',
+    '.ytp-ad-action-interstitial',
+    '.ytp-ad-skip-button-slot',
+    '.ad-showing .video-ads',
+    '.ad-interrupting',
+    '.ad-container',
     'ytd-action-companion-ad-renderer',
     'ytd-display-ad-renderer',
     'ytd-promoted-video-renderer',
     'ytd-search-pyv-renderer',
     'ytd-video-masthead-ad-v3-renderer',
     'ytd-promoted-sparkles-web-renderer',
+    'ytd-banner-promo-renderer',
+    'ytd-in-feed-ad-layout-renderer',
     '#masthead-ad',
-    '.ytd-banner-promo-renderer',
-  ].join(',') + '{ display:none !important; }';
-  var _injectAdStyle = function() {
-    (document.head || document.documentElement).appendChild(_adStyle);
-  };
-  if (document.head) { _injectAdStyle(); }
-  else { document.addEventListener('DOMContentLoaded', _injectAdStyle, { once: true }); }
+  ];
+  function _injectCSS() {
+    var s = document.createElement('style');
+    s.textContent = _cssRules.join(',') + '{ display:none !important; visibility:hidden !important; }';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  if (document.head) { _injectCSS(); }
+  else { document.addEventListener('DOMContentLoaded', _injectCSS, { once: true }); }
 
-  // 3. Intercepta fetch/XHR para bloquear URLs de tracking de anuncios
-  var AD_URLS = ['/api/stats/ads', '/pagead/', '/ptracking'];
+  /* ── 2. Interceptar fetch/XHR — bloquear redes de anuncios ─── */
+  var BLOCKED = [
+    'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
+    'googletagmanager.com', 'googletag.com',
+    '/pagead/', '/ads/get', '/ptracking',
+    'adservice.google.', 'adnxs.com', 'criteo.', 'amazon-adsystem.com',
+    'outbrain.com', 'taboola.com', 'pubmatic.com', 'openx.net',
+    /* YouTube ad tracking */
+    'youtube.com/api/stats/ads', 'youtube.com/pagead',
+    'youtube.com/get_video_info?adformat',
+  ];
+  function _isBlocked(url) {
+    if (!url || typeof url !== 'string') return false;
+    for (var i = 0; i < BLOCKED.length; i++) {
+      if (url.indexOf(BLOCKED[i]) !== -1) return true;
+    }
+    return false;
+  }
   var _origFetch = window.fetch;
   window.fetch = function(input) {
-    var url = (typeof input === 'string') ? input : (input && input.url) || '';
-    for (var i = 0; i < AD_URLS.length; i++) {
-      if (url.indexOf(AD_URLS[i]) !== -1) {
-        return Promise.resolve(new Response('', { status: 200 }));
-      }
-    }
+    var url = (typeof input === 'string') ? input : (input && (input.url || '')) || '';
+    if (_isBlocked(url)) return Promise.resolve(new Response('{}', { status: 200 }));
     return _origFetch.apply(this, arguments);
   };
   var _origXHROpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url) {
-    if (typeof url === 'string') {
-      for (var i = 0; i < AD_URLS.length; i++) {
-        if (url.indexOf(AD_URLS[i]) !== -1) {
-          url = 'about:blank';
-          break;
-        }
-      }
-    }
-    return _origXHROpen.apply(this, arguments);
+    var args = Array.prototype.slice.call(arguments);
+    if (_isBlocked(String(url || ''))) args[1] = 'about:blank';
+    return _origXHROpen.apply(this, args);
   };
+
+  /* ── 3 & 4. YouTube: patch ytIPR + auto‑saltar anuncios ─────── */
+  if (!location.hostname.includes('youtube.com')) return;
+
+  // 3. Patch ytInitialPlayerResponse antes de que YouTube lo use
+  var _ytIPR;
+  function _stripYtAds(v) {
+    if (v && typeof v === 'object') {
+      v.adPlacements           = [];
+      v.playerAds              = [];
+      v.adSlots                = [];
+      v.adBreakHeartbeatParams = undefined;
+    }
+    return v;
+  }
+  try {
+    Object.defineProperty(window, 'ytInitialPlayerResponse', {
+      get: function() { return _ytIPR; },
+      set: function(v) { _ytIPR = _stripYtAds(v); },
+      configurable: true,
+    });
+  } catch(e) {}
+
+  // 4. Auto‑saltar anuncio: click en botón skip o avanzar el video al final
+  function _trySkip() {
+    var btns = document.querySelectorAll(
+      '.ytp-skip-ad-button, .ytp-ad-skip-button, [class*="skip-ad"], [class*="skip-button"]'
+    );
+    for (var i = 0; i < btns.length; i++) {
+      if (btns[i].offsetParent !== null) { btns[i].click(); return; }
+    }
+    var video = document.querySelector('video');
+    if (video && isFinite(video.duration) && video.duration > 0) {
+      video.currentTime = video.duration;
+    }
+  }
+
+  // MutationObserver: detecta .ad-showing en el player
+  var _obs = new MutationObserver(function() {
+    if (document.querySelector('.ad-showing')) _trySkip();
+  });
+  function _startObs() {
+    var player = document.querySelector('#movie_player, #player-container');
+    if (player) _obs.observe(player, { attributes: true, childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _startObs, { once: true });
+  } else {
+    _startObs();
+  }
+
+  // setInterval de respaldo cada 300 ms
+  setInterval(function() {
+    if (document.querySelector('.ad-showing')) _trySkip();
+  }, 300);
 
 })();"#;
 
@@ -290,6 +348,10 @@ enum UserEvent {
     PermissionRequested { origin: String, kind: String },
     /// Abrir/cerrar el panel lateral de IA (ancho en píxeles lógicos, 0 = cerrado).
     AiPanelWidth(f64),
+    /// Overlay del menú de Flux sobre el contenido nativo.
+    /// Cuando active=true → chrome_view se expande a pantalla completa para que
+    /// el menú React aparezca por encima del content_view nativo.
+    MenuOverlay(bool),
     /// Recargar la UI del chrome cuando localhost:8082 finalmente responde.
     ReloadChrome,
 }
@@ -1214,6 +1276,10 @@ fn main() {
                         let width = val.get("width").and_then(|w| w.as_f64()).unwrap_or(0.0);
                         let _ = proxy.send_event(UserEvent::AiPanelWidth(width));
                     }
+                    Some("menu_overlay") => {
+                        let active = val.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let _ = proxy.send_event(UserEvent::MenuOverlay(active));
+                    }
                     Some(cmd) => println!("[flux-browser] Comando desconocido: {cmd}"),
                     None      => println!("[flux-browser] IPC sin campo 'cmd'"),
                 }
@@ -1385,9 +1451,46 @@ fn main() {
                             size: LogicalSize::new((w - new_pw).max(0.0), (wh - ch).max(0.0)).into(),
                         });
                     }
+                    // Quando il pannello AI è aperto, espandere chrome_view a tutta l'altezza
+                    // così il pannello React (parte destra) è visibile sopra il content_view.
+                    // La regione trasparente sinistra lascia vedere il content_view nativo.
+                    let chrome_target_h = if new_pw > 0.0 { wh } else { ch };
+                    let _ = chrome_view.set_bounds(Rect {
+                        position: LogicalPosition::new(0.0, 0.0).into(),
+                        size: LogicalSize::new(w, chrome_target_h).into(),
+                    });
                 }
 
                 println!("[flux-browser] ai_panel_w → {new_pw}px");
+            }
+
+            Event::UserEvent(UserEvent::MenuOverlay(active)) => {
+                let scale = window.scale_factor();
+                let phys  = window.inner_size();
+                let w  = phys.width  as f64 / scale;
+                let wh = phys.height as f64 / scale;
+                let ch = chrome_h.get();
+                let pw = ai_panel_w.get();
+
+                if !chrome_full.get() {
+                    if active {
+                        // Menú abierto → chrome_view a pantalla completa para que
+                        // el overlay React quede por encima del content_view nativo.
+                        let _ = chrome_view.set_bounds(Rect {
+                            position: LogicalPosition::new(0.0, 0.0).into(),
+                            size: LogicalSize::new(w, wh).into(),
+                        });
+                    } else {
+                        // Menú cerrado → restaurar chrome_view a su altura correcta
+                        // (full si hay panel IA abierto, header‑only si no).
+                        let restore_h = if pw > 0.0 { wh } else { ch };
+                        let _ = chrome_view.set_bounds(Rect {
+                            position: LogicalPosition::new(0.0, 0.0).into(),
+                            size: LogicalSize::new(w, restore_h).into(),
+                        });
+                    }
+                }
+                println!("[flux-browser] menu_overlay → {active}");
             }
 
             Event::UserEvent(UserEvent::Reload) => {
@@ -1635,9 +1738,10 @@ fn main() {
                         UrlDecision::Block(reason) => {
                             println!("[flux-security] Bloqueado ({reason:?}): {url}");
                             chrome_full.set(false);
+                            let chrome_target_h = if pw > 0.0 { h } else { ch };
                             let _ = chrome_view.set_bounds(Rect {
                                 position: LogicalPosition::new(0.0, 0.0).into(),
-                                size: LogicalSize::new(w, ch).into(),
+                                size: LogicalSize::new(w, chrome_target_h).into(),
                             });
                             let kind = match reason {
                                 flux_engine::security::BlockReason::AdTracker    => "blocked_tracker",
@@ -1661,9 +1765,10 @@ fn main() {
                     };
 
                     chrome_full.set(false);
+                    let chrome_target_h = if pw > 0.0 { h } else { ch };
                     let _ = chrome_view.set_bounds(Rect {
                         position: LogicalPosition::new(0.0, 0.0).into(),
-                        size: LogicalSize::new(w, ch).into(),
+                        size: LogicalSize::new(w, chrome_target_h).into(),
                     });
 
                     if let Some(view) = content_views.borrow().get(&native_id) {

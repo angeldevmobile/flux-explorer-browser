@@ -54,11 +54,12 @@ export function useBrowserNavigation({
 				url.startsWith("flux://")
 			)
 				return url;
-			if (url.includes(" ")) return `flux://search?q=${encodeURIComponent(url)}`;
-			if (url.includes(".")) return `https://${url}`;
-			return `flux://search?q=${encodeURIComponent(url)}`;
+			// Query con espacios o sin punto → SearXNG interno (flux://search)
+			if (url.includes(" ") || !url.includes("."))
+				return `flux://search?q=${encodeURIComponent(url)}`;
+			return `https://${url}`;
 		},
-		[engineConfig],
+		[],
 	);
 
 	const handleNavigate = useCallback(
