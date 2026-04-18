@@ -1,6 +1,31 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+const AI_PROXY_URL = process.env.AI_PROXY_URL || "http://34.229.141.6:3001";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+async function callProxy(prompt: string, model = 'gemini-2.0-flash'): Promise<string> {
+  const res = await fetch(`${AI_PROXY_URL}/ai/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, model }),
+  });
+  if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
+  const data = await res.json() as { text: string };
+  return data.text;
+}
+
+async function callProxyVision(
+  imageBase64: string,
+  mimeType: string,
+  prompt: string,
+  model = 'gemini-2.0-flash'
+): Promise<string> {
+  const res = await fetch(`${AI_PROXY_URL}/ai/generate-vision`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, mimeType, prompt, model }),
+  });
+  if (!res.ok) throw new Error(`AI proxy vision error: ${res.status}`);
+  const data = await res.json() as { text: string };
+  return data.text;
+}
 
 function parseGeminiJson(text: string): unknown {
   const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -8,37 +33,35 @@ function parseGeminiJson(text: string): unknown {
 }
 
 export class GeminiService {
-  private model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   private conversationHistory: Array<{ role: string; content: string }> = [];
 
   async processVoiceQuery(query: string, context?: Record<string, unknown>) {
-    // Agregar contexto de conversación
     this.conversationHistory.push({ role: 'user', content: query });
 
     const prompt = `
       Eres Orion, un asistente de navegador web inteligente y conversacional.
-      
+
       PERSONALIDAD:
       - Amigable, natural y cercano
       - Proactivo: sugiere ideas relacionadas
       - Intuitivo: anticipa necesidades del usuario
       - Conciso pero informativo
-      
+
       CONVERSACIÓN PREVIA:
       ${this.conversationHistory.slice(-4).map(h => `${h.role}: ${h.content}`).join('\n')}
-      
+
       CONSULTA ACTUAL: "${query}"
-      
+
       CONTEXTO DEL NAVEGADOR:
       ${context ? JSON.stringify(context) : 'Sin contexto adicional'}
-      
+
       INSTRUCCIONES:
       1. Analiza la intención del usuario (búsqueda, navegación, pregunta, comando)
       2. Responde de forma natural y conversacional
       3. Sugiere 2-3 acciones relacionadas que podrían interesarle
       4. Si detectas una búsqueda ambigua, ofrece clarificaciones
       5. Mantén el tono amigable y útil
-      
+
       RESPONDE EN FORMATO JSON:
       {
         "action": "search" | "navigate" | "info" | "command" | "chat",
@@ -55,9 +78,9 @@ export class GeminiService {
           "confidence": "alta|media|baja"
         }
       }
-      
+
       EJEMPLOS:
-      
+
       Usuario: "abre youtube"
       {
         "action": "navigate",
@@ -70,7 +93,7 @@ export class GeminiService {
         ],
         "data": { "intent": "open_website", "confidence": "alta" }
       }
-      
+
       Usuario: "busca recetas de pasta"
       {
         "action": "search",
@@ -83,7 +106,7 @@ export class GeminiService {
         ],
         "data": { "intent": "search_web", "confidence": "alta" }
       }
-      
+
       Usuario: "qué puedo hacer aquí"
       {
         "action": "info",
@@ -97,17 +120,14 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    const parsedResponse = parseGeminiJson(response.text()) as Record<string, unknown>;
+    const text = await callProxy(prompt);
+    const parsedResponse = parseGeminiJson(text) as Record<string, unknown>;
 
-    // Guardar respuesta en historial
     this.conversationHistory.push({
       role: 'assistant',
       content: parsedResponse.response as string
     });
 
-    // Limitar historial a últimas 10 interacciones
     if (this.conversationHistory.length > 10) {
       this.conversationHistory = this.conversationHistory.slice(-10);
     }
@@ -118,16 +138,16 @@ export class GeminiService {
   async summarizeWebPage(url: string, content: string) {
     const prompt = `
       Eres Orion, un asistente que resume contenido web de forma conversacional.
-      
+
       URL: ${url}
       CONTENIDO: ${content.substring(0, 3000)}
-      
+
       Resume este contenido de forma natural y conversacional:
       - Usa 2-3 oraciones máximo
       - Destaca lo más importante
       - Usa un tono amigable
       - Sugiere qué más podría interesarle al usuario
-      
+
       FORMATO JSON:
       {
         "summary": "Resumen conversacional del contenido",
@@ -137,20 +157,18 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    return parseGeminiJson(response.text());
+    return parseGeminiJson(await callProxy(prompt));
   }
 
   async getContextualSuggestions(currentUrl: string, userActivity: Record<string, unknown>) {
     const prompt = `
       Eres Orion, sugiere 5 acciones contextuales basadas en:
-      
+
       URL ACTUAL: ${currentUrl}
       ACTIVIDAD RECIENTE: ${JSON.stringify(userActivity)}
-      
+
       Sugiere acciones proactivas y útiles.
-      
+
       FORMATO JSON:
       {
         "suggestions": [
@@ -163,37 +181,32 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    return parseGeminiJson(response.text());
+    return parseGeminiJson(await callProxy(prompt));
   }
 
   async chatWithUser(message: string) {
     const prompt = `
       Eres Orion, un asistente de navegador web amigable.
-      
+
       HISTORIAL:
       ${this.conversationHistory.slice(-6).map(h => `${h.role}: ${h.content}`).join('\n')}
-      
+
       USUARIO: ${message}
-      
+
       Responde de forma natural, amigable y útil. Si detectas que el usuario necesita ayuda con el navegador, ofrécela proactivamente.
-      
+
       FORMATO JSON:
       {
         "response": "tu respuesta conversacional",
-        "canHelpWith": ["acción 1", "acción 2"] // si aplica
+        "canHelpWith": ["acción 1", "acción 2"]
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    const response = await result.response;
-    
-    const parsed = parseGeminiJson(response.text()) as Record<string, unknown>;
+    const parsed = parseGeminiJson(await callProxy(prompt)) as Record<string, unknown>;
 
     this.conversationHistory.push({ role: 'user', content: message });
     this.conversationHistory.push({ role: 'assistant', content: parsed.response as string });
-    
+
     return parsed;
   }
 
@@ -203,8 +216,6 @@ export class GeminiService {
     action: 'extract' | 'translate' | 'summarize' | 'analyze' | 'ask' | 'search',
     extra?: { question?: string; targetLanguage?: string }
   ) {
-    const visionModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
     const prompts: Record<string, string> = {
       extract: `
         Extrae todo el texto visible en esta imagen con precisión.
@@ -249,12 +260,7 @@ export class GeminiService {
       `,
     };
 
-    const result = await visionModel.generateContent([
-      { inlineData: { data: imageBase64, mimeType } },
-      prompts[action],
-    ]);
-
-    return parseGeminiJson(result.response.text());
+    return parseGeminiJson(await callProxyVision(imageBase64, mimeType, prompts[action]));
   }
 
   async translateText(text: string, targetLanguage: string, sourceLanguage?: string) {
@@ -273,8 +279,7 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    return parseGeminiJson(result.response.text()) as {
+    return parseGeminiJson(await callProxy(prompt)) as {
       translatedText: string;
       detectedLanguage: string;
       detectedLanguageCode: string;
@@ -295,8 +300,7 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    return parseGeminiJson(result.response.text()) as {
+    return parseGeminiJson(await callProxy(prompt)) as {
       language: string;
       languageCode: string;
       confidence: string;
@@ -330,8 +334,7 @@ export class GeminiService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    return parseGeminiJson(result.response.text());
+    return parseGeminiJson(await callProxy(prompt));
   }
 
   clearHistory() {

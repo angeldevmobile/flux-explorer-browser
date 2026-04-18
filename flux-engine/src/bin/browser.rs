@@ -15,6 +15,9 @@
 //   flux:download:started, flux:download:progress, flux:download:done,
 //   flux:permission:requested
 
+use std::os::windows::process::CommandExt;
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 use tao::{
     dpi::{LogicalPosition, LogicalSize},
     event::{ElementState, Event, WindowEvent},
@@ -26,6 +29,21 @@ use wry::{Rect, WebViewBuilder};
 use std::sync::Arc;
 use flux_engine::security::{SecurityLayer, UrlDecision};
 
+//   WebView2 COM — acceso directo para WebResourceRequested          
+#[cfg(target_os = "windows")]
+use webview2_com::{
+    Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2,
+        ICoreWebView2WebResourceRequestedEventArgs,
+        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+    },
+    WebResourceRequestedEventHandler,
+};
+#[cfg(target_os = "windows")]
+use windows::core::{HSTRING, Interface};
+#[cfg(target_os = "windows")]
+use windows::Win32::System::WinRT::EventRegistrationToken;
+
 // UI React embebida — activa solo con: cargo build --release --features bundle-ui
 // Requiere ejecutar `npm run build` antes para generar dist/
 #[cfg(feature = "bundle-ui")]
@@ -35,6 +53,10 @@ include!(concat!(env!("OUT_DIR"), "/ui_embed.rs"));
 // Requiere compilar con: cd flux-backend && npx pkg . -o ../flux-engine/bin/flux-backend.exe
 #[cfg(feature = "bundle-backend")]
 static BACKEND_EXE_BYTES: &[u8] = include_bytes!("../../bin/flux-backend.exe");
+
+// Addon nativo de SQLite — debe extraerse junto al backend
+#[cfg(feature = "bundle-backend")]
+static SQLITE_NODE_BYTES: &[u8] = include_bytes!("../../../flux-backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node");
 
 #[cfg(has_ytdlp)]
 static YTDLP_BYTES: &[u8] = include_bytes!("../../bin/yt-dlp.exe");
@@ -49,6 +71,7 @@ fn load_icon() -> Option<Icon> {
 
 /// Puerto del engine HTTP (búsqueda + ranking)
 const ENGINE_PORT: u16 = 4000;
+
 
 /// URL de la UI en desarrollo (Vite dev server)
 const UI_URL_DEV: &str = "http://localhost:8082";
@@ -73,6 +96,36 @@ fn mime_for_ext(ext: &str) -> &'static str {
         "ttf"             => "font/ttf",
         "otf"             => "font/otf",
         _                 => "application/octet-stream",
+    }
+}
+
+/// Obtiene el JWT_SECRET desde Windows Credential Manager.
+/// Si no existe, genera uno nuevo de 64 bytes aleatorios y lo guarda.
+fn get_or_create_jwt_secret() -> String {
+    use keyring::Entry;
+    use rand::Rng;
+
+    let entry = Entry::new("FluxBrowser", "jwt_secret")
+        .expect("No se pudo acceder a Windows Credential Manager");
+
+    match entry.get_password() {
+        Ok(secret) if secret.len() >= 32 => {
+            println!("[flux-backend] JWT_SECRET cargado desde Credential Manager");
+            secret
+        }
+        _ => {
+            let secret: String = rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(64)
+                .map(char::from)
+                .collect();
+            if let Err(e) = entry.set_password(&secret) {
+                println!("[flux-backend] No se pudo guardar JWT_SECRET en Credential Manager: {e}");
+            } else {
+                println!("[flux-backend] JWT_SECRET generado y guardado en Credential Manager");
+            }
+            secret
+        }
     }
 }
 
@@ -104,10 +157,44 @@ fn spawn_embedded_backend() -> Option<std::process::Child> {
         }
     }
 
+    // Extraer addon nativo de SQLite
+    let sqlite_path = app_dir.join("better_sqlite3.node");
+    if !sqlite_path.exists() {
+        println!("[flux-backend] Extrayendo better_sqlite3.node…");
+        if let Err(e) = std::fs::write(&sqlite_path, SQLITE_NODE_BYTES) {
+            println!("[flux-backend] Error al extraer sqlite addon: {e}");
+            return None;
+        }
+    }
+
+    let db_path = app_dir.join("flux.db");
+    let db_url = format!("file:{}", db_path.display());
+    let jwt_secret = get_or_create_jwt_secret();
+
+    let log_path = app_dir.join("flux-backend.log");
+    let log_file = std::fs::OpenOptions::new()
+        .create(true).append(true).open(&log_path)
+        .ok()
+        .map(std::process::Stdio::from);
+    let log_file2 = std::fs::OpenOptions::new()
+        .create(true).append(true).open(&log_path)
+        .ok()
+        .map(std::process::Stdio::from);
+
     match std::process::Command::new(&backend_path)
+        .current_dir(&app_dir)
+        .env("PORT", "3000")
+        .env("NODE_ENV", "production")
+        .env("DATABASE_URL", &db_url)
+        .env("JWT_SECRET", &jwt_secret)
+        .env("JWT_EXPIRE", "7d")
+        .env("FRONTEND_URL", "http://localhost:5173")
+        .env("SEARXNG_URL", "http://34.229.141.6:8080")
+        .env("AI_PROXY_URL", "http://34.229.141.6:3001")
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stdout(log_file.unwrap_or(std::process::Stdio::null()))
+        .stderr(log_file2.unwrap_or(std::process::Stdio::null()))
+        .creation_flags(CREATE_NO_WINDOW)
         .spawn()
     {
         Ok(child) => {
@@ -155,27 +242,30 @@ const USER_AGENT: &str =
      (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OrionBrowser/0.1";
 
 /// Script de bloqueo de anuncios inyectado en cada página antes de que cargue
-/// cualquier script del sitio. Cubre todos los sitios con cuatro capas:
+/// cualquier script del sitio. Cubre todos los sitios con cinco capas:
 ///   1. CSS cosmético universal (AdSense, DoubleClick, YouTube, etc.)
 ///   2. Intercepta fetch/XHR para bloquear peticiones de redes de anuncios
-///   3. YouTube: parchea ytInitialPlayerResponse para eliminar adPlacements
+///      y parchea respuestas del player de YouTube para eliminar adPlacements
+///   3. YouTube: parchea ytInitialPlayerResponse y ytInitialData
 ///   4. YouTube: MutationObserver + setInterval para auto‑saltar anuncios
+///   5. YouTube: ocultar overlay de anuncio cada frame con requestAnimationFrame
 const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   'use strict';
 
-  /* ── 1. CSS cosmético universal ─────────────────────────────── */
+  /*   1. CSS cosmético universal                ─ */
   var _cssRules = [
     /* Genérico / redes de anuncios */
-    '[id*="ad-slot"]', '[id*="google_ads"]',
-    '[class*="ad-banner"]', '[class*="ad-container"]',
-    '[data-ad-slot]', '[data-ad-unit]',
+    '[id*="ad-slot"]', '[id*="google_ads"]', '[id*="google_ad_"]',
+    '[class*="ad-banner"]', '[class*="ad-container"]', '[class*="ad-wrapper"]',
+    '[data-ad-slot]', '[data-ad-unit]', '[data-google-query-id]',
     'ins.adsbygoogle',
     'iframe[src*="doubleclick"]',
     'iframe[src*="googlesyndication"]',
     'iframe[src*="googleadservices"]',
     'div[id*="AdDiv"]', 'div[id*="ad_unit"]',
-    /* YouTube */
-    '#player-ads',
+    'div[id*="adsense"]', 'div[class*="adsense"]',
+    /* YouTube — clases estáticas y dinámicas */
+    '#player-ads', '#masthead-ad',
     '.ytp-ad-module',
     '.ytp-ad-overlay-container',
     '.ytp-ad-text-overlay',
@@ -184,6 +274,9 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     '.ytp-ad-player-overlay-instream-info',
     '.ytp-ad-action-interstitial',
     '.ytp-ad-skip-button-slot',
+    '.ytp-ad-skip-button-modern',
+    '.ytp-ad-feedback-dialog-container',
+    '.ytp-ad-persistent-progress-bar-container',
     '.ad-showing .video-ads',
     '.ad-interrupting',
     '.ad-container',
@@ -192,64 +285,159 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     'ytd-promoted-video-renderer',
     'ytd-search-pyv-renderer',
     'ytd-video-masthead-ad-v3-renderer',
+    'ytd-video-masthead-ad-advertiser-info-renderer',
     'ytd-promoted-sparkles-web-renderer',
+    'ytd-promoted-sparkles-text-search-renderer',
     'ytd-banner-promo-renderer',
     'ytd-in-feed-ad-layout-renderer',
-    '#masthead-ad',
+    'ytd-statement-banner-renderer',
+    'ytd-ad-slot-renderer',
+    'yt-mealbar-promo-renderer',
+    'ytd-primetime-promo-renderer',
+    'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+    /* Banners de suscripción a YouTube Premium */
+    'ytd-membership-offer-promo-renderer',
+    'ytd-compact-promoted-video-renderer',
   ];
+  var _adCSS = _cssRules.join(',') + '{ display:none !important; visibility:hidden !important; pointer-events:none !important; }';
+
   function _injectCSS() {
-    var s = document.createElement('style');
-    s.textContent = _cssRules.join(',') + '{ display:none !important; visibility:hidden !important; }';
+    var s = document.getElementById('_flux_adblock_css');
+    if (!s) {
+      s = document.createElement('style');
+      s.id = '_flux_adblock_css';
+    }
+    s.textContent = _adCSS;
     (document.head || document.documentElement).appendChild(s);
   }
-  if (document.head) { _injectCSS(); }
-  else { document.addEventListener('DOMContentLoaded', _injectCSS, { once: true }); }
+  _injectCSS();
+  document.addEventListener('DOMContentLoaded', _injectCSS, { once: true });
 
-  /* ── 2. Interceptar fetch/XHR — bloquear redes de anuncios ─── */
-  var BLOCKED = [
+  /*   2. Interceptar fetch/XHR — bloquear redes de anuncios  ─ */
+  var BLOCKED_PATTERNS = [
     'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
-    'googletagmanager.com', 'googletag.com',
-    '/pagead/', '/ads/get', '/ptracking',
-    'adservice.google.', 'adnxs.com', 'criteo.', 'amazon-adsystem.com',
-    'outbrain.com', 'taboola.com', 'pubmatic.com', 'openx.net',
-    /* YouTube ad tracking */
-    'youtube.com/api/stats/ads', 'youtube.com/pagead',
+    'googletagmanager.com', 'googletag.com', 'googletagservices.com',
+    '/pagead/', '/ads/get', '/ptracking', '/adview',
+    'adservice.google.', 'adnxs.com', 'criteo.', 'criteo.net',
+    'amazon-adsystem.com', 'outbrain.com', 'taboola.com',
+    'pubmatic.com', 'openx.net', 'rubiconproject.com',
+    'moatads.com', 'adsafeprotected.com',
+    /* YouTube ad tracking (no el player principal) */
+    'youtube.com/api/stats/ads',
+    'youtube.com/pagead',
     'youtube.com/get_video_info?adformat',
+    '/api/stats/ads',
+    '/pcs/activeview', '/pagead/lvz',
   ];
-  function _isBlocked(url) {
+
+  function _isBlockedUrl(url) {
     if (!url || typeof url !== 'string') return false;
-    for (var i = 0; i < BLOCKED.length; i++) {
-      if (url.indexOf(BLOCKED[i]) !== -1) return true;
+    for (var i = 0; i < BLOCKED_PATTERNS.length; i++) {
+      if (url.indexOf(BLOCKED_PATTERNS[i]) !== -1) return true;
     }
     return false;
   }
+
+  /* Parche de respuesta para /youtubei/v1/player: elimina adPlacements */
+  function _isYtPlayerApi(url) {
+    return typeof url === 'string' &&
+      (url.indexOf('/youtubei/v1/player') !== -1 ||
+       url.indexOf('/youtubei/v2/player') !== -1);
+  }
+
+  function _stripAdsFromPlayerJson(json) {
+    try {
+      var obj = typeof json === 'string' ? JSON.parse(json) : json;
+      if (obj && typeof obj === 'object') {
+        obj.adPlacements           = [];
+        obj.playerAds              = [];
+        obj.adSlots                = [];
+        obj.adBreakHeartbeatParams = undefined;
+        if (obj.streamingData) {
+          obj.streamingData.dashManifestUrl = obj.streamingData.dashManifestUrl;
+        }
+      }
+      return typeof json === 'string' ? JSON.stringify(obj) : obj;
+    } catch(e) { return json; }
+  }
+
+  /* fetch wrapper */
   var _origFetch = window.fetch;
-  window.fetch = function(input) {
-    var url = (typeof input === 'string') ? input : (input && (input.url || '')) || '';
-    if (_isBlocked(url)) return Promise.resolve(new Response('{}', { status: 200 }));
+  window.fetch = function(input, init) {
+    var url = (typeof input === 'string') ? input
+            : (input && input.url) ? input.url : '';
+    if (_isBlockedUrl(url)) {
+      return Promise.resolve(new Response('{}', { status: 200,
+        headers: { 'Content-Type': 'application/json' } }));
+    }
+    if (_isYtPlayerApi(url)) {
+      return _origFetch.apply(this, arguments).then(function(resp) {
+        var clone = resp.clone();
+        return clone.text().then(function(text) {
+          var patched = _stripAdsFromPlayerJson(text);
+          return new Response(patched, {
+            status: resp.status,
+            statusText: resp.statusText,
+            headers: resp.headers,
+          });
+        }).catch(function() { return resp; });
+      });
+    }
     return _origFetch.apply(this, arguments);
   };
+
+  /* XHR wrapper */
   var _origXHROpen = XMLHttpRequest.prototype.open;
+  var _origXHRSend = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function(method, url) {
     var args = Array.prototype.slice.call(arguments);
-    if (_isBlocked(String(url || ''))) args[1] = 'about:blank';
+    this._fluxUrl = String(url || '');
+    if (_isBlockedUrl(this._fluxUrl)) {
+      this._fluxBlocked = true;
+      args[1] = 'about:blank';
+    }
     return _origXHROpen.apply(this, args);
   };
+  XMLHttpRequest.prototype.send = function() {
+    if (this._fluxBlocked) return;
+    if (_isYtPlayerApi(this._fluxUrl || '')) {
+      var _self = this;
+      var _origOnLoad = this.onload;
+      this.addEventListener('load', function() {
+        try {
+          var patched = _stripAdsFromPlayerJson(_self.responseText);
+          Object.defineProperty(_self, 'responseText', { get: function(){ return patched; }, configurable: true });
+          Object.defineProperty(_self, 'response',     { get: function(){ return patched; }, configurable: true });
+        } catch(e) {}
+      });
+    }
+    return _origXHRSend.apply(this, arguments);
+  };
 
-  /* ── 3 & 4. YouTube: patch ytIPR + auto‑saltar anuncios ─────── */
+  /*   3. YouTube: patch ytInitialPlayerResponse + ytInitialData   */
   if (!location.hostname.includes('youtube.com')) return;
 
-  // 3. Patch ytInitialPlayerResponse antes de que YouTube lo use
-  var _ytIPR;
   function _stripYtAds(v) {
-    if (v && typeof v === 'object') {
-      v.adPlacements           = [];
-      v.playerAds              = [];
-      v.adSlots                = [];
-      v.adBreakHeartbeatParams = undefined;
-    }
+    if (!v || typeof v !== 'object') return v;
+    v.adPlacements           = [];
+    v.playerAds              = [];
+    v.adSlots                = [];
+    v.adBreakHeartbeatParams = undefined;
     return v;
   }
+
+  function _stripYtInitialData(d) {
+    if (!d || typeof d !== 'object') return d;
+    var str = JSON.stringify(d);
+    /* Eliminar bloques de anuncios del JSON de datos iniciales */
+    try {
+      str = str.replace(/"adSlot[^"]*":\{[^}]*\}/g, '"_":{}');
+      return JSON.parse(str);
+    } catch(e) { return d; }
+  }
+
+  /* Patch ytInitialPlayerResponse */
+  var _ytIPR;
   try {
     Object.defineProperty(window, 'ytInitialPlayerResponse', {
       get: function() { return _ytIPR; },
@@ -258,38 +446,100 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     });
   } catch(e) {}
 
-  // 4. Auto‑saltar anuncio: click en botón skip o avanzar el video al final
+  /* Patch ytInitialData (anuncios en resultados de búsqueda y sidebar) */
+  var _ytID;
+  try {
+    Object.defineProperty(window, 'ytInitialData', {
+      get: function() { return _ytID; },
+      set: function(v) { _ytID = _stripYtInitialData(v); },
+      configurable: true,
+    });
+  } catch(e) {}
+
+  /* Silenciar y saltarse el anuncio de video lo antes posible */
+  /*   4 & 5. Auto‑saltar anuncios                ─ */
   function _trySkip() {
-    var btns = document.querySelectorAll(
-      '.ytp-skip-ad-button, .ytp-ad-skip-button, [class*="skip-ad"], [class*="skip-button"]'
-    );
-    for (var i = 0; i < btns.length; i++) {
-      if (btns[i].offsetParent !== null) { btns[i].click(); return; }
+    /* Botones de saltar */
+    var skipSels = [
+      '.ytp-skip-ad-button',
+      '.ytp-ad-skip-button',
+      '.ytp-ad-skip-button-modern',
+      '[class*="skip-ad"]',
+      '[class*="skipButton"]',
+      'button.ytp-ad-overlay-close-button',
+    ];
+    for (var si = 0; si < skipSels.length; si++) {
+      var btns = document.querySelectorAll(skipSels[si]);
+      for (var bi = 0; bi < btns.length; bi++) {
+        if (btns[bi].offsetParent !== null) {
+          btns[bi].click();
+          return true;
+        }
+      }
     }
-    var video = document.querySelector('video');
-    if (video && isFinite(video.duration) && video.duration > 0) {
-      video.currentTime = video.duration;
+    /* Avanzar el video al final si hay anuncio reproduciéndose */
+    var adPlaying = document.querySelector('.ad-showing') ||
+                    document.querySelector('.ytp-ad-player-overlay-layout');
+    if (adPlaying) {
+      var video = document.querySelector('video');
+      if (video && isFinite(video.duration) && video.duration > 0) {
+        video.volume   = 0;
+        video.muted    = true;
+        video.currentTime = video.duration;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* Ocultar overlay de anuncio en tiempo real */
+  function _hideAdOverlay() {
+    var overlays = document.querySelectorAll(
+      '.ytp-ad-player-overlay-layout, .ytp-ad-text-overlay, ' +
+      '.ytp-ad-image-overlay, .ytp-ad-action-interstitial, ' +
+      '.ytp-ad-module, #player-ads'
+    );
+    for (var oi = 0; oi < overlays.length; oi++) {
+      overlays[oi].style.setProperty('display', 'none', 'important');
     }
   }
 
-  // MutationObserver: detecta .ad-showing en el player
+  /* MutationObserver: detecta cambios en el player */
   var _obs = new MutationObserver(function() {
-    if (document.querySelector('.ad-showing')) _trySkip();
+    _trySkip();
+    _hideAdOverlay();
   });
+
   function _startObs() {
-    var player = document.querySelector('#movie_player, #player-container');
-    if (player) _obs.observe(player, { attributes: true, childList: true, subtree: true });
+    var player = document.querySelector('#movie_player, #player-container, ytd-player');
+    if (player) {
+      _obs.observe(player, { attributes: true, childList: true, subtree: true });
+    } else {
+      _obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
   }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _startObs, { once: true });
   } else {
     _startObs();
   }
 
-  // setInterval de respaldo cada 300 ms
+  /* requestAnimationFrame para saltar anuncios frame a frame */
+  function _rafLoop() {
+    if (document.querySelector('.ad-showing, .ytp-ad-player-overlay-layout')) {
+      _trySkip();
+      _hideAdOverlay();
+    }
+    requestAnimationFrame(_rafLoop);
+  }
+  requestAnimationFrame(_rafLoop);
+
+  /* setInterval de respaldo cada 200 ms */
   setInterval(function() {
-    if (document.querySelector('.ad-showing')) _trySkip();
-  }, 300);
+    _trySkip();
+    _hideAdOverlay();
+  }, 200);
 
 })();"#;
 
@@ -356,7 +606,7 @@ enum UserEvent {
     ReloadChrome,
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+//   Helpers                                  ─
 
 /// Localiza flux-backend.exe en este orden de prioridad:
 ///   1. Junto al ejecutable de Flux (bundleado, producción)
@@ -420,7 +670,7 @@ fn spawn_backend() -> Option<std::process::Child> {
     }
 }
 
-// ── Páginas de error Flux ─────────────────────────────────────────────────────
+//   Páginas de error Flux                           ─
 
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -526,7 +776,7 @@ fn flux_error_page(kind: &str, url: &str) -> String {
 </html>"##)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//                                       ─
 
 /// Localiza yt-dlp en este orden de prioridad:
 ///   1. Junto al ejecutable de Orion  (bundleado, producción)
@@ -814,10 +1064,204 @@ fn run_ytdlp(
     });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//                                       ─
 
 /// Crea un WebView de contenido para una pestaña específica.
 /// El WebView se crea oculto (bounds 0×0); el caller lo hace visible al activarlo.
+//                                       ─
+// WebResourceRequested — filtrado de sub-recursos a nivel de red (estilo Brave)
+// Intercepta scripts, imágenes, iframes y XHR *dentro* del proceso WebView2,
+// antes de que se abra cualquier socket TCP. Más eficiente que el proxy TCP.
+//                                       ─
+
+/// Registra el filtro WebResourceRequested en el WebView2 dado.
+/// Bloquea todos los sub-recursos cuyo host esté en ADBLOCK_NET_DOMAINS.
+/// Debe llamarse desde el hilo principal de la ventana (donde vive el COM).
+#[cfg(target_os = "windows")]
+fn attach_adblock_filter(webview: &wry::WebView) {
+    use wry::WebViewExtWindows;
+
+    unsafe {
+        // Obtener ICoreWebView2 desde el controlador que expone wry
+        let controller = webview.controller();
+        let core: ICoreWebView2 = match controller.CoreWebView2() {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[adblock-wv2] No se pudo obtener ICoreWebView2: {e}");
+                return;
+            }
+        };
+
+        // Registrar filtro global: interceptar TODOS los sub-recursos (*)
+        let filter = HSTRING::from("*");
+        if let Err(e) = core.AddWebResourceRequestedFilter(&filter, COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL) {
+            eprintln!("[adblock-wv2] AddWebResourceRequestedFilter falló: {e}");
+            return;
+        }
+
+        let mut token = EventRegistrationToken::default();
+        let result = core.add_WebResourceRequested(
+            &WebResourceRequestedEventHandler::create(Box::new(
+                move |_webview, args: Option<ICoreWebView2WebResourceRequestedEventArgs>| {
+                    let Some(args) = args else { return Ok(()); };
+
+                    let request = match args.Request() {
+                        Ok(r) => r,
+                        Err(_) => return Ok(()),
+                    };
+
+                    // Obtener la URI de la petición
+                    let uri = {
+                        let mut uri = windows::core::PWSTR::null();
+                        if request.Uri(&mut uri).is_err() { return Ok(()); }
+                        // Convertir PWSTR a String de forma segura
+                        if uri.is_null() { return Ok(()); }
+                        let len = (0..).take_while(|&i| *uri.0.add(i) != 0).count();
+                        let slice = std::slice::from_raw_parts(uri.0, len);
+                        String::from_utf16_lossy(slice)
+                    };
+
+                    // Comprobar si el host está bloqueado
+                    if adblock_url_blocked(&uri) {
+                        println!("[adblock-wv2] BLOQUEADO: {uri}");
+                        // Cancelar la petición devolviendo una respuesta 204 vacía.
+                        // SetResponse con None cancela la carga en WebView2.
+                        let _ = args.SetResponse(None);
+                    }
+
+                    Ok(())
+                },
+            )),
+            &mut token,
+        );
+
+        if let Err(e) = result {
+            eprintln!("[adblock-wv2] add_WebResourceRequested falló: {e}");
+        } else {
+            println!(
+                "[adblock-wv2] Filtro de red activo ({} dominios bloqueados)",
+                ADBLOCK_NET_DOMAINS.len()
+            );
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn attach_adblock_filter(_webview: &wry::WebView) {}
+
+//                                       ─
+// Proxy HTTP de bloqueo de anuncios a nivel de red
+// Intercepta tráfico HTTP (petición directa) y HTTPS (CONNECT tunneling)
+// para bloquear dominios de redes publicitarias antes de que el navegador
+// los descargue — igual que hace Brave con su filtro de redes.
+//                                       ─
+
+/// Dominios de redes publicitarias y de rastreo bloqueados a nivel de red.
+static ADBLOCK_NET_DOMAINS: &[&str] = &[
+    // Google Ads / DoubleClick
+    "doubleclick.net",
+    "googlesyndication.com",
+    "googleadservices.com",
+    "googletagmanager.com",
+    "googletagservices.com",
+    "adservice.google.com",
+    "pagead2.googlesyndication.com",
+    "tpc.googlesyndication.com",
+    "securepubads.g.doubleclick.net",
+    "stats.g.doubleclick.net",
+    "cm.g.doubleclick.net",
+    "td.doubleclick.net",
+    "ad.doubleclick.net",
+    // Redes programáticas
+    "adnxs.com",
+    "criteo.com",
+    "criteo.net",
+    "ads.eu.criteo.com",
+    "static.criteo.net",
+    "amazon-adsystem.com",
+    "outbrain.com",
+    "taboola.com",
+    "pubmatic.com",
+    "simage2.pubmatic.com",
+    "openx.net",
+    "rubiconproject.com",
+    "moatads.com",
+    "adsafeprotected.com",
+    "scorecardresearch.com",
+    "quantserve.com",
+    "bidswitch.net",
+    "smartadserver.com",
+    "advertising.com",
+    "contextweb.com",
+    "casalemedia.com",
+    "33across.com",
+    "sharethrough.com",
+    "triplelift.com",
+    "indexworm.com",
+    "appnexus.com",
+    "yieldlab.net",
+    "lijit.com",
+    "sonobi.com",
+    "sovrn.com",
+    "undertone.com",
+    "spotxchange.com",
+    "teads.tv",
+    "mgid.com",
+    "revcontent.com",
+    // Social / tracking pixels
+    "connect.facebook.net",
+    "tr.snapchat.com",
+    "ads.twitter.com",
+    "ads.linkedin.com",
+    "bat.bing.com",
+    "c.msn.com",
+    // YouTube ad tracking específico (no el player)
+    "youtube.com/api/stats/ads",
+    "youtube.com/pagead",
+    "youtubei.googleapis.com/youtubei/v1/log_event",
+];
+
+/// Rutas de URL HTTP que indican tráfico publicitario aunque el dominio no esté listado.
+static ADBLOCK_NET_PATHS: &[&str] = &[
+    "/pagead/",
+    "/pcs/activeview",
+    "/pagead/lvz",
+    "/api/stats/ads",
+    "/ptracking",
+    "/adview",
+    "/ads/get",
+];
+
+/// Devuelve `true` si el host (sin puerto) pertenece a una red de anuncios.
+fn adblock_host_blocked(host: &str) -> bool {
+    // Excluir explícitamente localhost para no romper la UI del chrome
+    let h = host.split(':').next().unwrap_or(host).trim().to_lowercase();
+    if h == "localhost" || h == "127.0.0.1" || h == "::1" {
+        return false;
+    }
+    ADBLOCK_NET_DOMAINS.iter().any(|&blocked| {
+        if blocked.contains('/') {
+            // Es una ruta completa (ej. "youtube.com/pagead")
+            false
+        } else {
+            h == blocked || h.ends_with(&format!(".{blocked}"))
+        }
+    })
+}
+
+/// Devuelve `true` si la URL HTTP completa debe bloquearse.
+fn adblock_url_blocked(url: &str) -> bool {
+    // Extraer host de la URL absoluta HTTP
+    let rest = url.strip_prefix("http://").unwrap_or(url);
+    let host_and_path = rest.split('?').next().unwrap_or(rest);
+    let host = host_and_path.split('/').next().unwrap_or("").split(':').next().unwrap_or("");
+    if adblock_host_blocked(host) {
+        return true;
+    }
+    // Comprobar rutas
+    ADBLOCK_NET_PATHS.iter().any(|&p| url.contains(p))
+}
+
 fn make_content_view(
     native_id: String,
     proxy: tao::event_loop::EventLoopProxy<UserEvent>,
@@ -835,7 +1279,7 @@ fn make_content_view(
     let id_dl_s    = native_id.clone();
     let id_dl_d    = native_id.clone();
 
-    WebViewBuilder::new()
+    let view = WebViewBuilder::new()
         .with_url("about:blank")
         .with_incognito(incognito)
         .with_user_agent(USER_AGENT)
@@ -967,13 +1411,18 @@ fn make_content_view(
             }
         })
         .build_as_child(window)
-        .expect("No se pudo crear WebView de contenido")
+        .expect("No se pudo crear WebView de contenido");
+
+    // Registrar el filtro WebResourceRequested (bloqueo a nivel de red, estilo Brave).
+    // Corre en el hilo principal justo después de crear el WebView2.
+    attach_adblock_filter(&view);
+    view
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//                                       ─
 
 fn main() {
-    // ── 1. Engine HTTP en hilo secundario ─────────────────────────────────
+    //   1. Engine HTTP en hilo secundario                 ─
     let engine_handle = std::thread::spawn(|| {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(rt) => rt,
@@ -1010,7 +1459,7 @@ fn main() {
 
     std::thread::sleep(std::time::Duration::from_millis(300));
 
-    // ── 2. Backend Node.js ────────────────────────────────────────────────────
+    //   2. Backend Node.js                           
     // --features bundle-backend: backend embebido → extrae a %LOCALAPPDATA%\Flux\ y lanza.
     // Sin feature: busca flux-backend.exe en rutas conocidas (dev).
     #[cfg(feature = "bundle-backend")]
@@ -1022,7 +1471,7 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_millis(1500));
     }
 
-    // ── 3. Modo UI ────────────────────────────────────────────────────────────
+    //   3. Modo UI                               
     // --features bundle-ui: UI embebida → flux://localhost/
     // Sin feature: Vite dev server → http://localhost:8082
     #[cfg(feature = "bundle-ui")]
@@ -1035,13 +1484,13 @@ fn main() {
     #[cfg(not(feature = "bundle-ui"))]
     println!("[flux-ui] Modo desarrollo — esperando Vite en localhost:8082");
 
-    // ── Permission store: (origin, kind) → allow/deny ────────────────────────
+    //   Permission store: (origin, kind) → allow/deny             
     // Persiste durante la sesión. Primera petición siempre se deniega y se
     // notifica a React para que el usuario decida.
     let permissions: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<(String,String), bool>>>
         = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
 
-    // ── Script de detección offline (se inyecta en cada página cargada) ──────
+    //   Script de detección offline (se inyecta en cada página cargada)    
     let offline_html = flux_error_page("offline", "");
     let offline_html_js = offline_html
         .replace('\\', "\\\\")
@@ -1049,13 +1498,13 @@ fn main() {
         .replace("${", "\\${");
     let offline_init_script = format!(
         r#"(function(){{
-          /* ── Offline detection ───────────────────── */
+          /*   Offline detection           ─ */
           var _fp=`{offline_html_js}`;
           window.addEventListener('offline',function(){{
             document.open('text/html');document.write(_fp);document.close();
           }});
 
-          /* ── Permission intercept ────────────────── */
+          /*   Permission intercept           */
           var _origGUM = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
             ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
             : null;
@@ -1098,7 +1547,7 @@ fn main() {
     let proxy     = event_loop.create_proxy();
     let proxy_kbd = proxy.clone();
 
-    // Ventana nativa────
+    // Ventana nativa  
     let window = WindowBuilder::new()
         .with_title("Flux Browser")
         .with_inner_size(LogicalSize::new(1400u32, 900u32))
@@ -1473,6 +1922,7 @@ fn main() {
                 let pw = ai_panel_w.get();
 
                 if !chrome_full.get() {
+                    let aid = active_native_id.borrow().clone();
                     if active {
                         // Menú abierto → chrome_view a pantalla completa para que
                         // el overlay React quede por encima del content_view nativo.
@@ -1480,6 +1930,14 @@ fn main() {
                             position: LogicalPosition::new(0.0, 0.0).into(),
                             size: LogicalSize::new(w, wh).into(),
                         });
+                        // IMPORTANTE: ocultar el content_view (WebView2 tiene mayor z-order
+                        // por ser creado después; expandir chrome_view no basta para cubrirlo).
+                        if let Some(view) = content_views.borrow().get(&aid) {
+                            let _ = view.set_bounds(Rect {
+                                position: LogicalPosition::new(0.0, 0.0).into(),
+                                size: LogicalSize::new(0.0, 0.0).into(),
+                            });
+                        }
                     } else {
                         // Menú cerrado → restaurar chrome_view a su altura correcta
                         // (full si hay panel IA abierto, header‑only si no).
@@ -1488,6 +1946,13 @@ fn main() {
                             position: LogicalPosition::new(0.0, 0.0).into(),
                             size: LogicalSize::new(w, restore_h).into(),
                         });
+                        // Restaurar el content_view a sus bounds originales.
+                        if let Some(view) = content_views.borrow().get(&aid) {
+                            let _ = view.set_bounds(Rect {
+                                position: LogicalPosition::new(0.0, ch).into(),
+                                size: LogicalSize::new((w - pw).max(0.0), (wh - ch).max(0.0)).into(),
+                            });
+                        }
                     }
                 }
                 println!("[flux-browser] menu_overlay → {active}");
@@ -1804,7 +2269,7 @@ fn main() {
                 }
             }
 
-            // ── window.open() / target="_blank" / OAuth ────────────────────
+            //   window.open() / target="_blank" / OAuth           
             Event::UserEvent(UserEvent::NavigateDirect { native_id, url }) => {
                 let scale = window.scale_factor();
                 let phys  = window.inner_size();
@@ -1829,7 +2294,7 @@ fn main() {
                 }
             }
 
-            // ── Actualizar barra de direcciones en React ───────────────────
+            //   Actualizar barra de direcciones en React          ─
             // También actualiza loaded_urls para evitar recarga al volver a esta pestaña
             Event::UserEvent(UserEvent::UpdateAddressBar { native_id, url }) => {
                 loaded_urls.borrow_mut().insert(native_id, url.clone());

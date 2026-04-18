@@ -1,11 +1,20 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import db from "../config/db";
 import crypto from "crypto";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const AI_PROXY_URL = process.env.AI_PROXY_URL || "http://34.229.141.6:3001";
+
+async function callProxy(prompt: string): Promise<string> {
+  const res = await fetch(`${AI_PROXY_URL}/ai/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
+  const data = await res.json() as { text: string };
+  return data.text;
+}
 
 export class SongDetectionService {
-  private model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   /**
    * Identifica una canción usando Gemini a partir de la letra/descripción capturada
@@ -65,10 +74,10 @@ export class SongDetectionService {
       Identifica qué canción se está reproduciendo basándote en esta información:
       URL: ${sourceUrl}
       ${pageTitle ? `Título de la página: ${pageTitle}` : ''}
-      
-      Si es YouTube, Spotify, SoundCloud u otro servicio de música, usa el título de la página 
+
+      Si es YouTube, Spotify, SoundCloud u otro servicio de música, usa el título de la página
       como fuente principal (es más confiable que la URL para playlists/radios).
-      
+
       RESPONDE SOLO EN JSON VÁLIDO, sin markdown ni backticks:
       {
         "found": true,
@@ -82,8 +91,7 @@ export class SongDetectionService {
       }
     `;
 
-    const result = await this.model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await callProxy(prompt);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { found: false, message: 'No se pudo analizar' };
 
@@ -103,7 +111,7 @@ export class SongDetectionService {
   private async enrichWithGemini(title: string, artist: string) {
     const prompt = `
       Dame información adicional sobre la canción "${title}" de ${artist}.
-      
+
       RESPONDE SOLO EN JSON VÁLIDO:
       {
         "album": "nombre del álbum",
@@ -114,8 +122,7 @@ export class SongDetectionService {
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const text = result.response.text();
+      const text = await callProxy(prompt);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       return jsonMatch ? JSON.parse(jsonMatch[0]) : {};
     } catch {

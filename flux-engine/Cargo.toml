@@ -35,7 +35,17 @@ softbuffer = "0.4"
 fontdue    = "0.8"
 # ── Fase 5: JavaScript ligero ──────────────────────────────────
 rquickjs   = { version = "0.6", features = ["loader"] }
-# ── Fase 6: Seguridad (fetch síncrono para JS) ────────────────
+# ── Credenciales seguras (Windows Credential Manager) ─────────
+keyring    = { version = "3", features = ["windows-native"] }
+rand       = "0.8"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Acceso directo al COM de WebView2 para filtrado de sub-recursos a nivel de red
+webview2-com = "0.33"
+windows = { version = "0.58", features = [
+  "Win32_System_WinRT",
+  "Win32_Foundation",
+] }
 
 [build-dependencies]
 # Embeber icono como recurso Windows (.exe icon, taskbar, Alt+Tab)

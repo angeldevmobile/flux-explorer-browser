@@ -24,5 +24,5 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS || "",
-  SEARXNG_URL: process.env.SEARXNG_URL || "http://localhost:8080",
+  SEARXNG_URL: process.env.SEARXNG_URL || "http://34.229.141.6:8080",
 };

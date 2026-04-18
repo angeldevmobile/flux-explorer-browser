@@ -814,6 +814,8 @@ dependencies = [
  "fontdue",
  "image",
  "include_dir",
+ "keyring",
+ "rand 0.8.5",
  "reqwest",
  "rquickjs",
  "serde",
@@ -823,6 +825,8 @@ dependencies = [
  "tao",
  "tokio",
  "tower-http",
+ "webview2-com",
+ "windows",
  "winit",
  "wry",
 ]
@@ -1727,6 +1731,18 @@ checksum = "b49715b7073f385ba4bc528e5747d02e66cb39c6146efb66b781f131f0fb399c"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "keyring"
+version = "3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
+dependencies = [
+ "byteorder",
+ "log",
+ "windows-sys 0.60.2",
+ "zeroize",
 ]
 
 [[package]]
