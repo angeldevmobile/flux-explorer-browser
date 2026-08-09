@@ -11,7 +11,7 @@ pub use soft::OrionSoftRenderer;
 
 use crate::paint::DisplayCommand;
 
-// ── Console renderer (debug) ─────────────────────────────────
+//    Console renderer (debug)                                  
 
 pub struct ConsoleRenderer;
 
@@ -52,10 +52,10 @@ pub fn print_stats(
     layout_boxes: usize,
     display_cmds: usize,
 ) {
-    println!("── Pipeline stats ───────────────────────");
+    println!("   Pipeline stats                        ");
     println!("  tokens       : {}", token_count);
     println!("  DOM nodes    : {}", dom_nodes);
     println!("  layout boxes : {}", layout_boxes);
     println!("  display cmds : {}", display_cmds);
-    println!("─────────────────────────────────────────\n");
+    println!("                                         \n");
 }

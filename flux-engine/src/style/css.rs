@@ -11,12 +11,12 @@
 
 use crate::style::Color;
 
-// ── Especificidad ────────────────────────────────────────────
+//    Especificidad                                             
 /// (id_count, class_count, element_count) — mayor gana.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Specificity(pub u32, pub u32, pub u32);
 
-// ── Selectores ───────────────────────────────────────────────
+//    Selectores                                                
 #[derive(Debug, Clone)]
 pub struct SimpleSelector {
     pub tag:      Option<String>,
@@ -57,7 +57,7 @@ impl Selector {
     }
 }
 
-// ── Valores ──────────────────────────────────────────────────
+//    Valores                                                   
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Unit { Px, Em, Rem, Percent, Vh, Vw }
 
@@ -79,14 +79,14 @@ pub struct Declaration {
     pub important: bool,
 }
 
-// ── Regla ────────────────────────────────────────────────────
+//    Regla                                                     
 #[derive(Debug, Clone)]
 pub struct Rule {
     pub selectors:    Vec<Selector>,
     pub declarations: Vec<Declaration>,
 }
 
-// ── Parser principal ─────────────────────────────────────────
+//    Parser principal                                          
 pub struct CssParser<'a> {
     input: &'a str,
     pos:   usize,
@@ -240,7 +240,7 @@ impl<'a> CssParser<'a> {
         s
     }
 
-    // ── Helpers ──────────────────────────────────────────────
+    //    Helpers                                               
     fn skip_ws_comments(&mut self) {
         loop {
             self.skip_ws();
@@ -325,7 +325,7 @@ impl<'a> CssParser<'a> {
     }
 }
 
-// ── Helpers de valor ─────────────────────────────────────────
+//    Helpers de valor                                          
 
 fn is_selector_start(c: char) -> bool {
     c.is_alphabetic() || c == '_' || c == '.' || c == '#' || c == '*'

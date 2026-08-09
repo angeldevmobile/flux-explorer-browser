@@ -68,7 +68,7 @@ pub fn run_pipeline_with_url(html: &str, url: &str) -> Vec<paint::DisplayCommand
     let tokens = parsing::tokenizer::tokenize(html);
     let dom    = parsing::parser::parse(&tokens, html);
 
-    // ── Fase 5: JavaScript ────────────────────────────────────
+    //    Fase 5: JavaScript                                     
     let scripts = js::extract_scripts(&dom);
     let mutations = if !scripts.is_empty() {
         let snapshot = js::DomSnapshot::from_arena(&dom, url);
@@ -100,7 +100,7 @@ pub fn run_pipeline_with_url(html: &str, url: &str) -> Vec<paint::DisplayCommand
     commands
 }
 
-// ── Tests ─────────────────────────────────────────────────────
+//    Tests                                                      
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,7 +110,7 @@ mod tests {
     use crate::renderer::ConsoleRenderer;
     use crate::paint::DisplayCommand;
 
-    // ── Medición de texto ─────────────────────────────────────
+    //    Medición de texto                                      
     #[test]
     fn test_measure_text_nonzero() {
         let w = measure_text("Hola mundo", 16.0);
@@ -133,7 +133,7 @@ mod tests {
         assert!(large > small, "fuente mayor → más ancho");
     }
 
-    // ── CSS Parser ────────────────────────────────────────────
+    //    CSS Parser                                             
     #[test]
     fn test_parse_hex_color() {
         use crate::style::css::parse_color;
@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(parse_length("0"),     Some(Value::Length(0.0,   Unit::Px)));
     }
 
-    // ── UA Styles ─────────────────────────────────────────────
+    //    UA Styles                                              
     #[test]
     fn test_ua_h1_bold_32px() {
         use crate::style::ua::ua_style;
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(ua_style("script").display, Display::None);
     }
 
-    // ── Cascade ───────────────────────────────────────────────
+    //    Cascade                                                
     #[test]
     fn test_style_tag_color() {
         let html = r#"<html><head><style>p{color:#ff0000;}</style></head><body><p>Test</p></body></html>"#;
@@ -219,7 +219,7 @@ mod tests {
         assert_eq!(styles.get(p_id).color, Color { r: 128, g: 0, b: 128, a: 255 });
     }
 
-    // ── Inline layout: word wrapping ──────────────────────────
+    //    Inline layout: word wrapping                           
     #[test]
     fn test_word_wrap_produces_multiple_lines() {
         // Contenedor muy angosto (100px) con un texto largo
@@ -288,7 +288,7 @@ mod tests {
         }
     }
 
-    // ── text-align ────────────────────────────────────────────
+    //    text-align                                             
     #[test]
     fn test_text_align_center_offset() {
         let html = r#"<html><head>
@@ -310,7 +310,7 @@ mod tests {
         }
     }
 
-    // ── Pipeline completo ─────────────────────────────────────
+    //    Pipeline completo                                      
     #[test]
     fn test_pipeline_fase3_completo() {
         let html = r#"<!DOCTYPE html>
@@ -355,7 +355,7 @@ mod tests {
         ConsoleRenderer::render(&commands);
     }
 
-    // ── Pipeline completo: word wrap con viewport angosto ─────
+    //    Pipeline completo: word wrap con viewport angosto      
     #[test]
     fn test_pipeline_viewport_angosto() {
         let html = r#"<html><body>

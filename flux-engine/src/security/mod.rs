@@ -11,7 +11,7 @@
 //    URL → check_url() → (bloqueada | permitida | upgraded)
 // ============================================================
 
-// ── CSP ───────────────────────────────────────────────────────
+//    CSP                                                        
 
 /// Directivas CSP relevantes para el motor Orion.
 #[derive(Debug, Default, Clone)]
@@ -69,7 +69,7 @@ impl CspPolicy {
     }
 }
 
-// ── HSTS Preload ──────────────────────────────────────────────
+//    HSTS Preload                                               
 
 /// Dominios que siempre deben usar HTTPS (subset del preload list).
 /// Fuente: hstspreload.org — solo dominios de nivel medio/alto tráfico.
@@ -99,7 +99,7 @@ pub fn hsts_should_upgrade(domain: &str) -> bool {
     HSTS_PRELOAD.iter().any(|&h| h == domain || h.trim_start_matches("www.") == d)
 }
 
-// ── Ad / Tracker Blocker ──────────────────────────────────────
+//    Ad / Tracker Blocker                                       
 
 /// Dominios de tracking y publicidad conocidos (subset EasyList/EasyPrivacy).
 const BLOCKED_DOMAINS: &[&str] = &[
@@ -143,7 +143,7 @@ pub enum BlockReason {
     CspViolation,
 }
 
-// ── SecurityLayer ─────────────────────────────────────────────
+//    SecurityLayer                                              
 
 /// Resultado del chequeo de seguridad para una URL.
 #[derive(Debug)]
@@ -231,7 +231,7 @@ fn extract_domain(url: &str) -> Option<String> {
     Some(domain.to_string())
 }
 
-// ── Tests ─────────────────────────────────────────────────────
+//    Tests                                                      
 
 #[cfg(test)]
 mod tests {

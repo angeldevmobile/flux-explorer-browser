@@ -44,7 +44,7 @@ pub async fn fetch_and_extract(
     client: &Client,
     url: &str,
 ) -> Result<(String, PageData, SecurityLayer), FetchError> {
-    // ── Fase 6: Seguridad — verificar URL antes de conectar ───
+    //    Fase 6: Seguridad — verificar URL antes de conectar    
     let mut security = SecurityLayer::new();
     let fetch_url = match security.check_url(url) {
         UrlDecision::Allow          => url.to_string(),
@@ -67,7 +67,7 @@ pub async fn fetch_and_extract(
     let final_url = response.url().to_string();
     let headers   = response.headers();
 
-    // ── Fase 6: CSP del servidor ──────────────────────────────
+    //    Fase 6: CSP del servidor                               
     // Leer Content-Security-Policy (y la variante Report-Only como fallback)
     let csp_header = headers
         .get("content-security-policy")

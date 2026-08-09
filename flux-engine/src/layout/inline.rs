@@ -16,7 +16,7 @@ use crate::dom::{Arena, NodeData, NodeId};
 use crate::style::{Display, StyleMap, TextAlign, ComputedStyle};
 use super::{LayoutBox, LayoutTree, Dimensions};
 
-// ── Medición de texto ────────────────────────────────────────
+//    Medición de texto                                         
 
 /// Ancho aproximado de un carácter (fuente proporcional sans-serif).
 #[inline]
@@ -46,7 +46,7 @@ pub fn measure_text(text: &str, font_size: f32) -> f32 {
     text.chars().map(|c| char_width(c, font_size)).sum()
 }
 
-// ── Átomo inline ─────────────────────────────────────────────
+//    Átomo inline                                              
 
 /// Unidad mínima de contenido inline para line-breaking.
 /// Puede ser una palabra, un elemento inline-block atómico, o un <br>.
@@ -60,7 +60,7 @@ struct InlineAtom {
     is_break:   bool,       // forzar salto de línea (<br>)
 }
 
-// ── Recolección de átomos ────────────────────────────────────
+//    Recolección de átomos                                     
 
 /// Recorre el subárbol inline de `node_id` y rellena `atoms`.
 /// `parent_style` es el estilo heredado del contenedor (para texto heredado).
@@ -148,7 +148,7 @@ fn collect_atoms<'a>(
     }
 }
 
-// ── Línea ─────────────────────────────────────────────────────
+//    Línea                                                      
 
 /// Fragmento de una línea — varios átomos del mismo nodo fusionados.
 struct LineFrag {
@@ -175,7 +175,7 @@ impl Line {
     fn is_empty(&self) -> bool { self.frags.is_empty() }
 }
 
-// ── Layout inline principal ──────────────────────────────────
+//    Layout inline principal                                   
 
 /// Ejecuta el inline formatting context para los `children` de un bloque.
 /// Emite LayoutBoxes en `tree` y avanza `cursor_y`.
@@ -189,14 +189,14 @@ pub fn layout_inline_group<'a>(
     text_align: TextAlign,
     parent_style: &ComputedStyle,
 ) {
-    // ── 1. Recoger todos los átomos ──────────────────────────
+    //    1. Recoger todos los átomos                           
     let mut atoms: Vec<InlineAtom> = Vec::new();
     for &child_id in children {
         collect_atoms(dom, styles, child_id, parent_style, &mut atoms);
     }
     if atoms.is_empty() { return; }
 
-    // ── 2. Greedy line breaking ──────────────────────────────
+    //    2. Greedy line breaking                               
     let avail_w = container.width;
     let mut lines: Vec<Line> = Vec::new();
     let mut cur_line = Line::empty();
@@ -222,7 +222,7 @@ pub fn layout_inline_group<'a>(
         // Si el átomo tampoco cabe en una línea vacía → lo colocamos igual
         // (mejor overflow que perder contenido)
 
-        // ── Fusionar con el frag anterior si es del mismo nodo ──
+        //    Fusionar con el frag anterior si es del mismo nodo   
         let fused = if let Some(last) = cur_line.frags.last_mut() {
             if last.node_id == atom.node_id {
                 last.text.push(' ');
@@ -250,7 +250,7 @@ pub fn layout_inline_group<'a>(
     // Última línea
     if !cur_line.is_empty() { lines.push(cur_line); }
 
-    // ── 3. Emitir LayoutBoxes ────────────────────────────────
+    //    3. Emitir LayoutBoxes                                 
     let mut line_y = *cursor_y;
     for line in &mut lines {
         // Offset de text-align

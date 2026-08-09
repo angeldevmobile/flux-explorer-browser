@@ -26,7 +26,7 @@ use rquickjs::function::Rest;
 use crate::dom::{Arena, NodeData, NodeId};
 use crate::paint::DisplayCommand;
 
-// ── DOM Snapshot ─────────────────────────────────────────────
+//    DOM Snapshot                                              
 
 /// Copia owned de un elemento DOM para exponerlo a QuickJS.
 #[derive(Clone, Debug, Default)]
@@ -106,7 +106,7 @@ fn collect_text<'a>(dom: &Arena<'a>, id: NodeId) -> String {
     }
 }
 
-// ── DOM Mutations ─────────────────────────────────────────────
+//    DOM Mutations                                              
 
 /// Cambio al DOM producido por código JavaScript.
 #[derive(Debug, Clone)]
@@ -127,7 +127,7 @@ pub enum DomMutation {
     ConsoleLog     (String),
 }
 
-// ── JS Runtime ────────────────────────────────────────────────
+//    JS Runtime                                                 
 
 /// Runtime de JavaScript aislado — uno por tab.
 /// Sandbox: 16 MB heap · 512 KB stack · sin acceso al filesystem.
@@ -169,20 +169,20 @@ impl JsRuntime {
         ctx.with(|ctx| -> rquickjs::Result<()> {
             let globals = ctx.globals();
 
-            // ── console ───────────────────────────────────────
+            //    console                                        
             register_console(&ctx, &globals, mutations.clone())?;
 
-            // ── _orion_ namespace (raw Rust API) ──────────────
+            //    _orion_ namespace (raw Rust API)               
             let orion = build_orion_object(
                 &ctx, mutations.clone(), elements, id_index,
                 title_st, url, body_idx, html_idx, csp,
             )?;
             globals.set("_orion_", orion)?;
 
-            // ── DOM bootstrap (document, window, fetch, setTimeout) ──
+            //    DOM bootstrap (document, window, fetch, setTimeout)   
             ctx.eval::<(), _>(DOM_BOOTSTRAP)?;
 
-            // ── Ejecutar scripts ──────────────────────────────
+            //    Ejecutar scripts                               
             for (i, script) in scripts.iter().enumerate() {
                 if let Err(e) = ctx.eval::<(), _>(script.as_str()) {
                     eprintln!("[orion-js] Script {}: {:?}", i, e);
@@ -289,7 +289,7 @@ impl JsRuntime {
     }
 }
 
-// ── _orion_ object builder ────────────────────────────────────
+//    _orion_ object builder                                     
 
 /// Construye el objeto `_orion_` con todos los bindings Rust→JS.
 /// Compartido entre `execute_scripts` y `execute_event`.
@@ -528,7 +528,7 @@ fn build_orion_object<'js>(
     Ok(orion)
 }
 
-// ── Console ───────────────────────────────────────────────────
+//    Console                                                    
 
 fn register_console<'js>(
     ctx:       &Ctx<'js>,
@@ -571,7 +571,7 @@ fn js_val_str(v: &Value) -> String {
     "[object]".into()
 }
 
-// ── querySelector helpers ─────────────────────────────────────
+//    querySelector helpers                                      
 
 fn parse_selector(sel: &str) -> (Option<String>, Option<String>, Option<String>) {
     let s = sel.trim();
@@ -605,7 +605,7 @@ fn simple_query_all(elements: &[JsElement], sel: &str) -> Vec<i32> {
         .map(|el| el.idx as i32).collect()
 }
 
-// ── fetch sincrónico ──────────────────────────────────────────
+//    fetch sincrónico                                           
 
 fn fetch_sync_json(url: &str) -> String {
     // Bloquear fetch no-HTTPS (excepto localhost)
@@ -649,14 +649,14 @@ fn fetch_sync_json(url: &str) -> String {
     }
 }
 
-// ── DOM Bootstrap JS ──────────────────────────────────────────
+//    DOM Bootstrap JS                                           
 
 const DOM_BOOTSTRAP: &str = r#"
 (function(orion) {
   'use strict';
   function str(v) { return v == null ? '' : String(v); }
 
-  // ── Event registry ────────────────────────────────────────
+  //    Event registry                                         
   // Clave: "<target>:<type>"  donde target es número (elem_id),
   // "document" o "window".
   var _evts = {};
@@ -690,7 +690,7 @@ const DOM_BOOTSTRAP: &str = r#"
     }
   };
 
-  // ── Elemento DOM ─────────────────────────────────────────
+  //    Elemento DOM                                          
   function makeElement(idx) {
     if (idx == null || idx < 0) return null;
     var e = { __idx: idx };
@@ -735,7 +735,7 @@ const DOM_BOOTSTRAP: &str = r#"
     return e;
   }
 
-  // ── document ─────────────────────────────────────────────
+  //    document                                              
   globalThis.document = {
     getElementById:       function(id)  { return makeElement(orion.byId(id)); },
     querySelector:        function(sel) { return makeElement(orion.qs(-1, sel)); },
@@ -751,7 +751,7 @@ const DOM_BOOTSTRAP: &str = r#"
     get documentElement() { return makeElement(orion.html()); }
   };
 
-  // ── window ───────────────────────────────────────────────
+  //    window                                                
   var _timers = [];
   globalThis.window = {
     location: { href: orion.url() },
@@ -770,7 +770,7 @@ const DOM_BOOTSTRAP: &str = r#"
   globalThis.clearInterval = window.clearInterval;
   globalThis.location    = window.location;
 
-  // ── fetch ────────────────────────────────────────────────
+  //    fetch                                                 
   globalThis.fetch = function(url) {
     var r = JSON.parse(orion.fetchSyncJson(str(url)));
     var resp = {
@@ -784,7 +784,7 @@ const DOM_BOOTSTRAP: &str = r#"
     };
   };
 
-  // ── Timers ───────────────────────────────────────────────
+  //    Timers                                                
   globalThis.__runTimers = function() {
     var q = _timers.splice(0);
     for (var i = 0; i < q.length; i++) {
@@ -795,7 +795,7 @@ const DOM_BOOTSTRAP: &str = r#"
 }(_orion_));
 "#;
 
-// ── Script extraction ─────────────────────────────────────────
+//    Script extraction                                          
 
 /// Extrae el contenido de todos los <script> sin atributo src.
 pub fn extract_scripts<'a>(dom: &Arena<'a>) -> Vec<String> {
@@ -814,7 +814,7 @@ pub fn extract_scripts<'a>(dom: &Arena<'a>) -> Vec<String> {
     scripts
 }
 
-// ── Apply mutations → display list ───────────────────────────
+//    Apply mutations → display list                            
 
 /// Aplica mutaciones de texto/estilo sobre la display list generada.
 ///
@@ -822,7 +822,7 @@ pub fn extract_scripts<'a>(dom: &Arena<'a>) -> Vec<String> {
 /// - `CreateElement` + `AppendChild` + `SetTextContent` generan nuevos
 ///   DrawText al final del documento para nodos creados dinámicamente por JS.
 pub fn apply_mutations(commands: &mut Vec<DisplayCommand>, mutations: &[DomMutation]) {
-    // ── Paso 1: parchear texto de nodos existentes ────────────
+    //    Paso 1: parchear texto de nodos existentes             
     for m in mutations {
         let DomMutation::SetTextContent { elem_id, text } = m else { continue };
         let mut replaced = false;
@@ -843,7 +843,7 @@ pub fn apply_mutations(commands: &mut Vec<DisplayCommand>, mutations: &[DomMutat
         });
     }
 
-    // ── Paso 2: renderizar nodos creados con createElement ────
+    //    Paso 2: renderizar nodos creados con createElement     
     let created: std::collections::HashSet<usize> = mutations.iter()
         .filter_map(|m| if let DomMutation::CreateElement { idx, .. } = m { Some(*idx) } else { None })
         .collect();

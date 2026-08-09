@@ -34,7 +34,7 @@ const db = bindingPath
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
-// ─── Create all tables ────────────────────────────────────────────────────────
+//     Create all tables                                                         
 db.exec(`
 CREATE TABLE IF NOT EXISTS User (
   id TEXT PRIMARY KEY,

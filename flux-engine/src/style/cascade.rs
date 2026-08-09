@@ -20,7 +20,7 @@ use crate::style::css::{
     CssParser,
 };
 
-// ── Matching ─────────────────────────────────────────────────
+//    Matching                                                  
 
 /// Comprueba si un selector coincide con el nodo `id` del DOM.
 pub fn matches_selector(sel: &Selector, id: NodeId, dom: &Arena) -> bool {
@@ -62,7 +62,7 @@ fn matches_simple(sel: &SimpleSelector, id: NodeId, dom: &Arena) -> bool {
     true
 }
 
-// ── Aplicar declaración ──────────────────────────────────────
+//    Aplicar declaración                                       
 
 /// Aplica una declaración CSS a un `ComputedStyle`.
 /// `em` = font-size del elemento padre (contexto de herencia).
@@ -90,7 +90,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Font ────────────────────────────────────────────
+        //    Font                                             
         "font-size" => {
             if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.font_size = v; }
         }
@@ -113,7 +113,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Colores ─────────────────────────────────────────
+        //    Colores                                          
         "color" => {
             if let Value::Color(c) = &decl.value { style.color = *c; }
         }
@@ -128,7 +128,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Margin shorthand ─────────────────────────────────
+        //    Margin shorthand                                  
         "margin" => {
             let vals = multi_lengths(&decl.value, em, vw, vh);
             apply_box4(&vals,
@@ -143,7 +143,7 @@ pub fn apply_declaration(
         "margin-bottom" => { if let Some(v) = resolve_auto_length(&decl.value, em, vw, vh) { style.margin_bottom = v; } }
         "margin-left"   => { if let Some(v) = resolve_auto_length(&decl.value, em, vw, vh) { style.margin_left   = v; } }
 
-        // ── Padding shorthand ────────────────────────────────
+        //    Padding shorthand                                 
         "padding" => {
             let vals = multi_lengths(&decl.value, em, vw, vh);
             apply_box4(&vals,
@@ -158,7 +158,7 @@ pub fn apply_declaration(
         "padding-bottom" => { if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.padding_bottom = v; } }
         "padding-left"   => { if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.padding_left   = v; } }
 
-        // ── Dimensiones ──────────────────────────────────────
+        //    Dimensiones                                       
         "width"      => { style.width  = resolve_dimension(&decl.value, em, vw, vh); }
         "height"     => { style.height = resolve_dimension(&decl.value, em, vw, vh); }
         "min-width"  => { if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.min_width  = v; } }
@@ -166,7 +166,7 @@ pub fn apply_declaration(
         "max-width"  => { if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.max_width  = Some(v); } }
         "max-height" => { if let Some(v) = resolve_length(&decl.value, em, vw, vh) { style.max_height = Some(v); } }
 
-        // ── Border ───────────────────────────────────────────
+        //    Border                                            
         "border-width" | "border-top-width" | "border-right-width"
         | "border-bottom-width" | "border-left-width" => {
             if let Some(v) = resolve_length(&decl.value, em, vw, vh) {
@@ -196,7 +196,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Texto ────────────────────────────────────────────
+        //    Texto                                             
         "text-align" => {
             if let Value::Keyword(k) = &decl.value {
                 style.text_align = match k.as_str() {
@@ -229,7 +229,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Visibilidad ──────────────────────────────────────
+        //    Visibilidad                                       
         "opacity" => {
             if let Value::Number(n) = &decl.value { style.opacity = n.clamp(0.0, 1.0); }
         }
@@ -239,7 +239,7 @@ pub fn apply_declaration(
             }
         }
 
-        // ── Posicionamiento ──────────────────────────────────
+        //    Posicionamiento                                   
         "position" => {
             if let Value::Keyword(k) = &decl.value {
                 style.position = match k.as_str() {
@@ -259,7 +259,7 @@ pub fn apply_declaration(
         "bottom" => { style.bottom = resolve_dimension(&decl.value, em, vw, vh); }
         "left"   => { style.left   = resolve_dimension(&decl.value, em, vw, vh); }
 
-        // ── Overflow ─────────────────────────────────────────
+        //    Overflow                                          
         "overflow" | "overflow-x" | "overflow-y" => {
             if let Value::Keyword(k) = &decl.value {
                 style.overflow_hidden = matches!(k.as_str(), "hidden" | "clip");
@@ -270,7 +270,7 @@ pub fn apply_declaration(
     }
 }
 
-// ── Herencia ─────────────────────────────────────────────────
+//    Herencia                                                  
 
 /// Lista de propiedades que se heredan del padre al hijo.
 pub fn inherit_from_parent(child: &mut ComputedStyle, parent: &ComputedStyle) {
@@ -289,7 +289,7 @@ pub fn inherit_from_parent(child: &mut ComputedStyle, parent: &ComputedStyle) {
     // background NO es heredable
 }
 
-// ── Utilitarios de longitud ──────────────────────────────────
+//    Utilitarios de longitud                                   
 
 pub fn resolve_length(val: &Value, em: f32, vw: f32, vh: f32) -> Option<f32> {
     match val {
@@ -353,7 +353,7 @@ fn apply_box4(parts: &[Option<f32>; 4], top: &mut f32, right: &mut f32, bottom: 
     if let Some(v) = parts[3] { *left   = v; }
 }
 
-// ── Parsear atributo style="" ────────────────────────────────
+//    Parsear atributo style=""                                 
 
 /// Parsea `style="color: red; font-size: 16px"` → Vec<Declaration>.
 pub fn parse_inline_style(raw: &str) -> Vec<Declaration> {

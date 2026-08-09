@@ -21,7 +21,7 @@ use crate::dom::{Arena, NodeData, NodeId};
 use cascade::{apply_declaration, inherit_from_parent, matches_selector, parse_inline_style};
 use css::CssParser;
 
-// ── Tipos de datos planos ────────────────────────────────────
+//    Tipos de datos planos                                     
 
 /// Color RGBA — 4 bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,40 +76,40 @@ impl LengthOrAuto {
     }
 }
 
-// ── ComputedStyle ────────────────────────────────────────────
+//    ComputedStyle                                             
 /// Estilos computados de un nodo — struct plano, cache-friendly.
 /// ~120 bytes por nodo.
 #[derive(Debug, Clone, Copy)]
 pub struct ComputedStyle {
-    // ── Display / visibilidad ──────────────────────────────
+    //    Display / visibilidad                               
     pub display:   Display,
     pub visible:   bool,
     pub opacity:   f32,
 
-    // ── Fuente ────────────────────────────────────────────
+    //    Fuente                                             
     pub font_size:   f32,
     pub font_weight: FontWeight,
     pub font_style:  FontStyleProp,
     pub line_height: f32,       // multiplicador (1.4 = 140%)
     pub letter_spacing: f32,    // px
 
-    // ── Colores ───────────────────────────────────────────
+    //    Colores                                            
     pub color:            Color,
     pub background_color: Color,
 
-    // ── Box model — márgenes ──────────────────────────────
+    //    Box model — márgenes                               
     pub margin_top:    f32,
     pub margin_right:  f32,
     pub margin_bottom: f32,
     pub margin_left:   f32,
 
-    // ── Box model — padding ───────────────────────────────
+    //    Box model — padding                                
     pub padding_top:    f32,
     pub padding_right:  f32,
     pub padding_bottom: f32,
     pub padding_left:   f32,
 
-    // ── Dimensiones ───────────────────────────────────────
+    //    Dimensiones                                        
     pub width:      LengthOrAuto,
     pub height:     LengthOrAuto,
     pub min_width:  f32,
@@ -117,7 +117,7 @@ pub struct ComputedStyle {
     pub max_width:  Option<f32>,
     pub max_height: Option<f32>,
 
-    // ── Border ────────────────────────────────────────────
+    //    Border                                             
     pub border_top_width:    f32,
     pub border_right_width:  f32,
     pub border_bottom_width: f32,
@@ -126,12 +126,12 @@ pub struct ComputedStyle {
     pub border_style:        BorderStyleProp,
     pub border_radius:       f32,
 
-    // ── Texto ─────────────────────────────────────────────
+    //    Texto                                              
     pub text_align:                  TextAlign,
     pub text_decoration_underline:   bool,
     pub text_decoration_line_through: bool,
 
-    // ── Posicionamiento ───────────────────────────────────
+    //    Posicionamiento                                    
     pub position: Position,
     pub z_index:  i32,
     pub top:      LengthOrAuto,
@@ -139,7 +139,7 @@ pub struct ComputedStyle {
     pub bottom:   LengthOrAuto,
     pub left:     LengthOrAuto,
 
-    // ── Overflow ──────────────────────────────────────────
+    //    Overflow                                           
     pub overflow_hidden: bool,
 }
 
@@ -195,7 +195,7 @@ impl Default for ComputedStyle {
     }
 }
 
-// ── StyleMap ─────────────────────────────────────────────────
+//    StyleMap                                                  
 
 pub struct StyleMap {
     styles: Vec<ComputedStyle>,
@@ -207,7 +207,7 @@ impl StyleMap {
     }
 }
 
-// ── Resolve ──────────────────────────────────────────────────
+//    Resolve                                                   
 
 /// Dimensiones del viewport para resolver vh/vw/%
 pub struct Viewport { pub width: f32, pub height: f32 }
@@ -226,11 +226,11 @@ pub fn resolve_with_viewport<'a>(dom: &Arena<'a>, vp: Viewport) -> StyleMap {
     let n = dom.len();
     let mut styles: Vec<ComputedStyle> = Vec::with_capacity(n);
 
-    // ── Paso 1: recoger CSS de <style> y <link rel="stylesheet"> ──
+    //    Paso 1: recoger CSS de <style> y <link rel="stylesheet">   
     let author_css = collect_author_css(dom);
     let rules = CssParser::new(&author_css).parse_stylesheet();
 
-    // ── Paso 2: recorrido en orden de inserción (pre-orden) ─────────
+    //    Paso 2: recorrido en orden de inserción (pre-orden)          
     // El arena está en pre-orden, así que el padre siempre tiene índice menor.
     for (node_idx, node) in dom.iter() {
         // Paso 2a: UA defaults
@@ -290,7 +290,7 @@ pub fn resolve_with_viewport<'a>(dom: &Arena<'a>, vp: Viewport) -> StyleMap {
     StyleMap { styles }
 }
 
-// ── Extracción de CSS del HTML ───────────────────────────────
+//    Extracción de CSS del HTML                                
 
 /// Recorre el DOM y concatena el texto de todos los nodos <style>.
 /// También detectaría <link rel="stylesheet"> (TODO: fetch externo).

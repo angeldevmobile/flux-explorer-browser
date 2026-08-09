@@ -263,7 +263,7 @@ const USER_AGENT: &str =
 const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   'use strict';
 
-  /*   1. CSS cosmético universal                ─ */
+  /*   1. CSS cosmético universal                  */
   var _cssRules = [
     /* Genérico / redes de anuncios */
     '[id*="ad-slot"]', '[id*="google_ads"]', '[id*="google_ad_"]',
@@ -325,7 +325,7 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   _injectCSS();
   document.addEventListener('DOMContentLoaded', _injectCSS, { once: true });
 
-  /*   1b. Colapsar lo que el filtro de red bloqueó          ─
+  /*   1b. Colapsar lo que el filtro de red bloqueó           
      Cuando se cancela una petición el elemento sigue en el DOM con su
      espacio reservado, y se ve un bloque blanco donde estaba el anuncio.
      Los eventos 'error' no burbujean, así que hay que escuchar en captura. */
@@ -345,7 +345,7 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     }
   }, true);
 
-  /*   2. Interceptar fetch/XHR — bloquear redes de anuncios  ─ */
+  /*   2. Interceptar fetch/XHR — bloquear redes de anuncios    */
   var BLOCKED_PATTERNS = [
     'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
     'googletagmanager.com', 'googletag.com', 'googletagservices.com',
@@ -566,7 +566,7 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   } catch(e) {}
 
   /* Silenciar y saltarse el anuncio de video lo antes posible */
-  /*   4 & 5. Auto‑saltar anuncios                ─ */
+  /*   4 & 5. Auto‑saltar anuncios                  */
   /* ¿Se puede pulsar de verdad?
      No sirve `offsetParent !== null`: da null tanto para display:none como
      para cualquier elemento con position:fixed, y YouTube pone el botón de
@@ -652,7 +652,7 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     }
   }
 
-  /* ── Bucle de reacción ──────────────────────────────────────────
+  /*    Bucle de reacción                                           
      El MutationObserver es quien detecta que apareció un anuncio. Sólo
      entonces se enciende un intervalo corto, que se apaga cuando el
      anuncio termina. Antes esto era un requestAnimationFrame infinito
@@ -739,7 +739,7 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   window.addEventListener('yt-navigate-finish', _startObs);
   window.addEventListener('yt-page-data-updated', _startObs);
 
-  /* ── Red de seguridad del opt-out de SABR ──────────────────────
+  /*    Red de seguridad del opt-out de SABR                       
      Si el player muestra "Se produjo un error", asumimos que fuimos
      nosotros: apagamos el opt-out para toda la sesión y recargamos una
      sola vez. La segunda pasada ya no toca serverAbrStreamingUrl, así
@@ -816,7 +816,7 @@ enum UserEvent {
     ReloadChrome,
 }
 
-//   Helpers                                  ─
+//   Helpers                                   
 
 /// Localiza flux-backend.exe en este orden de prioridad:
 ///   1. Junto al ejecutable de Flux (bundleado, producción)
@@ -880,7 +880,7 @@ fn spawn_backend() -> Option<std::process::Child> {
     }
 }
 
-//   Páginas de error Flux                           ─
+//   Páginas de error Flux                            
 
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -986,7 +986,7 @@ fn flux_error_page(kind: &str, url: &str) -> String {
 </html>"##)
 }
 
-//                                       ─
+//                                        
 
 /// Localiza yt-dlp en este orden de prioridad:
 ///   1. Junto al ejecutable de Orion  (bundleado, producción)
@@ -1274,15 +1274,15 @@ fn run_ytdlp(
     });
 }
 
-//                                       ─
+//                                        
 
 /// Crea un WebView de contenido para una pestaña específica.
 /// El WebView se crea oculto (bounds 0×0); el caller lo hace visible al activarlo.
-//                                       ─
+//                                        
 // WebResourceRequested — filtrado de sub-recursos a nivel de red (estilo Brave)
 // Intercepta scripts, imágenes, iframes y XHR *dentro* del proceso WebView2,
 // antes de que se abra cualquier socket TCP. Más eficiente que el proxy TCP.
-//                                       ─
+//                                        
 
 /// Contador global de peticiones bloqueadas, para mostrarlo en la UI.
 static ADS_BLOCKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -1424,7 +1424,7 @@ fn attach_adblock_filter(webview: &wry::WebView, current_url: Arc<std::sync::Mut
                         return Ok(());
                     }
 
-                    // ── Cancelar de verdad ────────────────────────────────
+                    //    Cancelar de verdad                                 
                     // En WebView2, Response = null es el valor por defecto y
                     // significa "seguí a la red". Para bloquear hay que
                     // asignar una respuesta real; ésta va vacía con 403.
@@ -1484,11 +1484,11 @@ fn browser_arguments() -> String {
     }
 
     let features_desactivadas = [
-        // ── Heredadas de wry: no quitarlas ──
+        //    Heredadas de wry: no quitarlas   
         "msWebOOUI",              // menú mini de Edge
         "msPdfOOUI",              // visor PDF fuera de proceso
         "msSmartScreenProtection",// SmartScreen (envía URLs a Microsoft)
-        // ── Añadidas por Flux: funciones que no usamos ──
+        //    Añadidas por Flux: funciones que no usamos   
         "Translate",              // traductor integrado de Edge
         "MediaRouter",            // descubrimiento de Chromecast en segundo plano
         "OptimizationHints",      // descarga modelos de sugerencias de Google
@@ -1854,10 +1854,10 @@ fn make_content_view(
     view
 }
 
-//                                       ─
+//                                        
 
 fn main() {
-    //   0. Motor de bloqueo — construirlo antes de abrir ninguna pestaña ─
+    //   0. Motor de bloqueo — construirlo antes de abrir ninguna pestaña  
     // Tarda ~200 ms parseando ~150.000 reglas. Hacerlo ahora evita que la
     // primera navegación cargue anuncios mientras el motor todavía arranca.
     flux_engine::adblocker::warm_up();
@@ -1868,7 +1868,7 @@ fn main() {
     // que recompilar y redistribuir el instalador.
     flux_engine::adblocker::actualizar_listas_en_segundo_plano();
 
-    //   1. Engine HTTP en hilo secundario                 ─
+    //   1. Engine HTTP en hilo secundario                  
     let engine_handle = std::thread::spawn(|| {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(rt) => rt,
@@ -1944,7 +1944,7 @@ fn main() {
         .replace("${", "\\${");
     let offline_init_script = format!(
         r#"(function(){{
-          /*   Offline detection           ─ */
+          /*   Offline detection             */
           var _fp=`{offline_html_js}`;
           window.addEventListener('offline',function(){{
             document.open('text/html');document.write(_fp);document.close();
@@ -2832,7 +2832,7 @@ fn main() {
                 }
             }
 
-            //   Actualizar barra de direcciones en React          ─
+            //   Actualizar barra de direcciones en React           
             // También actualiza loaded_urls para evitar recarga al volver a esta pestaña
             Event::UserEvent(UserEvent::PageLoadStarted { native_id, url }) => {
                 // Filtrado cosmético específico del sitio (EasyList + uBlock).
@@ -2863,7 +2863,7 @@ fn main() {
     });
 }
 
-// ── Tests ─────────────────────────────────────────────────────
+//    Tests                                                      
 
 #[cfg(test)]
 mod tests {

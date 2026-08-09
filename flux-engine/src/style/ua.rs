@@ -12,7 +12,7 @@ use crate::style::{ComputedStyle, Display, FontWeight, TextAlign};
 pub fn ua_style(tag: &str) -> ComputedStyle {
     let base = ComputedStyle::default();
     match tag {
-        // ── Elementos de bloque ──────────────────────────────
+        //    Elementos de bloque                               
         "html" => ComputedStyle {
             display: Display::Block,
             font_size: 16.0,
@@ -31,7 +31,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Encabezados ──────────────────────────────────────
+        //    Encabezados                                       
         "h1" => ComputedStyle {
             display:       Display::Block,
             font_size:     32.0,
@@ -81,7 +81,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Párrafo y texto ──────────────────────────────────
+        //    Párrafo y texto                                   
         "p" => ComputedStyle {
             display:       Display::Block,
             margin_top:    16.0,
@@ -104,7 +104,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Listas ───────────────────────────────────────────
+        //    Listas                                            
         "ul" | "menu" => ComputedStyle {
             display:       Display::Block,
             margin_top:    16.0,
@@ -140,7 +140,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Tabla ────────────────────────────────────────────
+        //    Tabla                                             
         "table" => ComputedStyle {
             display:          Display::Block,
             border_top_width: 0.0,
@@ -166,7 +166,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Inline ───────────────────────────────────────────
+        //    Inline                                            
         "span" | "a" | "abbr" | "acronym" | "cite" | "dfn" |
         "kbd" | "samp" | "var" | "time" | "mark" | "wbr" => ComputedStyle {
             display: Display::Inline,
@@ -213,7 +213,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Formularios ──────────────────────────────────────
+        //    Formularios                                       
         "form" => ComputedStyle { display: Display::Block, ..base },
         "fieldset" => ComputedStyle {
             display:          Display::Block,
@@ -241,7 +241,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Multimedia ───────────────────────────────────────
+        //    Multimedia                                        
         "img" | "video" | "audio" | "canvas" | "svg" => ComputedStyle {
             display: Display::InlineBlock,
             ..base
@@ -254,7 +254,7 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
             ..base
         },
 
-        // ── Separadores / estructura ─────────────────────────
+        //    Separadores / estructura                          
         "hr" => ComputedStyle {
             display:          Display::Block,
             margin_top:       8.0,
@@ -265,14 +265,14 @@ pub fn ua_style(tag: &str) -> ComputedStyle {
         },
         "br" => ComputedStyle { display: Display::Inline, ..base },
 
-        // ── Ocultos ──────────────────────────────────────────
+        //    Ocultos                                           
         "head" | "script" | "style" | "meta" | "link" | "title" |
         "noscript" | "template" | "datalist" => ComputedStyle {
             display: Display::None,
             ..base
         },
 
-        // ── Genérico ─────────────────────────────────────────
+        //    Genérico                                          
         _ => ComputedStyle { display: Display::Block, ..base },
     }
 }

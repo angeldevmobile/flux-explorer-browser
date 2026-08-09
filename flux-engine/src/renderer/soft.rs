@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use crate::paint::DisplayCommand;
 use crate::style::Color;
 
-// ── Cache de glifos ──────────────────────────────────────────
+//    Cache de glifos                                           
 
 type CacheKey = (char, u32); // (carácter, font_size × 10)
 
@@ -29,7 +29,7 @@ struct GlyphEntry {
     bitmap:  Vec<u8>, // alpha values (0-255)
 }
 
-// ── Renderer ─────────────────────────────────────────────────
+//    Renderer                                                  
 
 pub struct OrionSoftRenderer {
     font:  fontdue::Font,
@@ -79,7 +79,7 @@ impl OrionSoftRenderer {
         }
     }
 
-    // ── Primitivas ────────────────────────────────────────────
+    //    Primitivas                                             
 
     fn fill_rect(
         &self,
@@ -191,7 +191,7 @@ impl OrionSoftRenderer {
     }
 }
 
-// ── Helpers de color ─────────────────────────────────────────
+//    Helpers de color                                          
 
 #[inline]
 fn rgb_to_u32(r: u8, g: u8, b: u8) -> u32 {
