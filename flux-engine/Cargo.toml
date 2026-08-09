@@ -38,6 +38,7 @@ rquickjs   = { version = "0.6", features = ["loader"] }
 # ── Credenciales seguras (Windows Credential Manager) ─────────
 keyring    = { version = "3", features = ["windows-native"] }
 rand       = "0.8"
+adblock = { version = "0.13", default-features = false, features = ["addr", "embedded-domain-resolver", "full-regex-handling"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Acceso directo al COM de WebView2 para filtrado de sub-recursos a nivel de red

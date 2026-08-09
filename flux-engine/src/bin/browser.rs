@@ -34,7 +34,10 @@ use flux_engine::security::{SecurityLayer, UrlDecision};
 use webview2_com::{
     Microsoft::Web::WebView2::Win32::{
         ICoreWebView2,
+        ICoreWebView2_2,
+        ICoreWebView2WebResourceRequest,
         ICoreWebView2WebResourceRequestedEventArgs,
+        COREWEBVIEW2_WEB_RESOURCE_CONTEXT,
         COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
     },
     WebResourceRequestedEventHandler,
@@ -342,22 +345,77 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   function _isYtPlayerApi(url) {
     return typeof url === 'string' &&
       (url.indexOf('/youtubei/v1/player') !== -1 ||
-       url.indexOf('/youtubei/v2/player') !== -1);
+       url.indexOf('/youtubei/v2/player') !== -1 ||
+       url.indexOf('/youtubei/v1/next') !== -1 ||
+       url.indexOf('/youtubei/v1/browse') !== -1 ||
+       url.indexOf('/youtubei/v1/search') !== -1 ||
+       url.indexOf('/youtubei/v1/reel/reel_watch_sequence') !== -1);
+  }
+
+  /* Claves que YouTube usa para entregar anuncios. Se vacían (las de tipo
+     array) o se eliminan (los renderers sueltos dentro de listas). */
+  var _AD_ARRAY_KEYS = [
+    'adPlacements', 'playerAds', 'adSlots', 'adBreakHeartbeatParams',
+  ];
+  var _AD_NODE_KEYS = [
+    'adPlacementRenderer', 'adSlotRenderer', 'adDurationRemaining',
+    'promotedSparklesWebRenderer', 'promotedSparklesTextSearchRenderer',
+    'compactPromotedVideoRenderer', 'promotedVideoRenderer',
+    'displayAdRenderer', 'actionCompanionAdRenderer',
+    'searchPyvRenderer', 'bannerPromoRenderer', 'statementBannerRenderer',
+    'inFeedAdLayoutRenderer', 'mealbarPromoRenderer', 'primetimePromoRenderer',
+    'videoMastheadAdV3Renderer', 'membershipOfferPromoRenderer',
+    'brandVideoSingletonRenderer', 'brandVideoShelfRenderer',
+    'adsEngagementPanelRenderer', 'playerLegacyDesktopWatchAdsRenderer',
+  ];
+
+  function _hasAdNodeKey(o) {
+    for (var i = 0; i < _AD_NODE_KEYS.length; i++) {
+      if (o[_AD_NODE_KEYS[i]] !== undefined) return true;
+    }
+    return false;
+  }
+
+  /* Recorrido recursivo. Reemplaza al regex anterior, que no podía atravesar
+     objetos anidados y en la práctica no eliminaba nada. */
+  function _stripAds(node, depth) {
+    if (!node || typeof node !== 'object' || depth > 40) return node;
+
+    if (Array.isArray(node)) {
+      var out = [];
+      for (var i = 0; i < node.length; i++) {
+        var el = node[i];
+        /* Descartar entradas de lista que sean contenedores de anuncios:
+           así desaparecen del feed sin dejar huecos. */
+        if (el && typeof el === 'object' && !Array.isArray(el) && _hasAdNodeKey(el)) continue;
+        out.push(_stripAds(el, depth + 1));
+      }
+      return out;
+    }
+
+    for (var k in node) {
+      if (!Object.prototype.hasOwnProperty.call(node, k)) continue;
+      if (_AD_ARRAY_KEYS.indexOf(k) !== -1) {
+        /* Vaciar, no borrar: el player consulta estas claves y si faltan
+           por completo algunas rutas de código tiran excepción. */
+        node[k] = [];
+        continue;
+      }
+      if (_AD_NODE_KEYS.indexOf(k) !== -1) {
+        try { delete node[k]; } catch(e) {}
+        continue;
+      }
+      node[k] = _stripAds(node[k], depth + 1);
+    }
+    return node;
   }
 
   function _stripAdsFromPlayerJson(json) {
     try {
-      var obj = typeof json === 'string' ? JSON.parse(json) : json;
-      if (obj && typeof obj === 'object') {
-        obj.adPlacements           = [];
-        obj.playerAds              = [];
-        obj.adSlots                = [];
-        obj.adBreakHeartbeatParams = undefined;
-        if (obj.streamingData) {
-          obj.streamingData.dashManifestUrl = obj.streamingData.dashManifestUrl;
-        }
-      }
-      return typeof json === 'string' ? JSON.stringify(obj) : obj;
+      var isString = typeof json === 'string';
+      var obj = isString ? JSON.parse(json) : json;
+      obj = _stripAds(obj, 0);
+      return isString ? JSON.stringify(obj) : obj;
     } catch(e) { return json; }
   }
 
@@ -417,41 +475,37 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   /*   3. YouTube: patch ytInitialPlayerResponse + ytInitialData   */
   if (!location.hostname.includes('youtube.com')) return;
 
-  function _stripYtAds(v) {
-    if (!v || typeof v !== 'object') return v;
-    v.adPlacements           = [];
-    v.playerAds              = [];
-    v.adSlots                = [];
-    v.adBreakHeartbeatParams = undefined;
-    return v;
-  }
-
-  function _stripYtInitialData(d) {
-    if (!d || typeof d !== 'object') return d;
-    var str = JSON.stringify(d);
-    /* Eliminar bloques de anuncios del JSON de datos iniciales */
+  /* Intercepta una variable global de YouTube y limpia lo que se le asigne.
+     Debe hacerse en document-start, antes de que el HTML inline la escriba. */
+  function _guardGlobal(name) {
+    var _val;
     try {
-      str = str.replace(/"adSlot[^"]*":\{[^}]*\}/g, '"_":{}');
-      return JSON.parse(str);
-    } catch(e) { return d; }
+      Object.defineProperty(window, name, {
+        get: function() { return _val; },
+        set: function(v) { _val = _stripAds(v, 0); },
+        configurable: true,
+      });
+    } catch(e) {}
   }
 
-  /* Patch ytInitialPlayerResponse */
-  var _ytIPR;
-  try {
-    Object.defineProperty(window, 'ytInitialPlayerResponse', {
-      get: function() { return _ytIPR; },
-      set: function(v) { _ytIPR = _stripYtAds(v); },
-      configurable: true,
-    });
-  } catch(e) {}
+  _guardGlobal('ytInitialPlayerResponse');  /* anuncios del video */
+  _guardGlobal('ytInitialData');            /* feed, búsqueda, sidebar */
 
-  /* Patch ytInitialData (anuncios en resultados de búsqueda y sidebar) */
-  var _ytID;
+  /* ytplayer.config.args.player_response llega como JSON *en texto*: el
+     recorrido recursivo no lo ve, hay que parsearlo aparte. */
+  var _ytPlayerCfg;
   try {
-    Object.defineProperty(window, 'ytInitialData', {
-      get: function() { return _ytID; },
-      set: function(v) { _ytID = _stripYtInitialData(v); },
+    Object.defineProperty(window, 'ytplayer', {
+      get: function() { return _ytPlayerCfg; },
+      set: function(v) {
+        try {
+          if (v && v.config && v.config.args && typeof v.config.args.player_response === 'string') {
+            v.config.args.player_response =
+              _stripAdsFromPlayerJson(v.config.args.player_response);
+          }
+        } catch(e) {}
+        _ytPlayerCfg = v;
+      },
       configurable: true,
     });
   } catch(e) {}
@@ -504,19 +558,45 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     }
   }
 
-  /* MutationObserver: detecta cambios en el player */
-  var _obs = new MutationObserver(function() {
-    _trySkip();
+  /* ── Bucle de reacción ──────────────────────────────────────────
+     El MutationObserver es quien detecta que apareció un anuncio. Sólo
+     entonces se enciende un intervalo corto, que se apaga cuando el
+     anuncio termina. Antes esto era un requestAnimationFrame infinito
+     (60 querySelector/s en toda página de YouTube, para siempre) más un
+     setInterval permanente; con el observer alcanza y no gasta CPU
+     mientras mirás un video normal. */
+  var _adTimer = null;
+
+  function _adShowing() {
+    return !!document.querySelector('.ad-showing, .ytp-ad-player-overlay-layout, .ad-interrupting');
+  }
+
+  function _stopAdTimer() {
+    if (_adTimer !== null) { clearInterval(_adTimer); _adTimer = null; }
+  }
+
+  function _react() {
+    if (!_adShowing()) { _stopAdTimer(); return; }
     _hideAdOverlay();
-  });
+    _trySkip();
+    if (_adTimer === null) {
+      _adTimer = setInterval(function() {
+        if (!_adShowing()) { _stopAdTimer(); return; }
+        _hideAdOverlay();
+        _trySkip();
+      }, 250);
+    }
+  }
+
+  var _obs = new MutationObserver(_react);
 
   function _startObs() {
+    _obs.disconnect();
     var player = document.querySelector('#movie_player, #player-container, ytd-player');
-    if (player) {
-      _obs.observe(player, { attributes: true, childList: true, subtree: true });
-    } else {
-      _obs.observe(document.documentElement, { childList: true, subtree: true });
-    }
+    _obs.observe(player || document.documentElement, {
+      attributes: true, attributeFilter: ['class'], childList: true, subtree: true,
+    });
+    _react();
   }
 
   if (document.readyState === 'loading') {
@@ -525,21 +605,10 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     _startObs();
   }
 
-  /* requestAnimationFrame para saltar anuncios frame a frame */
-  function _rafLoop() {
-    if (document.querySelector('.ad-showing, .ytp-ad-player-overlay-layout')) {
-      _trySkip();
-      _hideAdOverlay();
-    }
-    requestAnimationFrame(_rafLoop);
-  }
-  requestAnimationFrame(_rafLoop);
-
-  /* setInterval de respaldo cada 200 ms */
-  setInterval(function() {
-    _trySkip();
-    _hideAdOverlay();
-  }, 200);
+  /* YouTube es una SPA: al pasar de un video a otro no recarga la página,
+     así que hay que re-enganchar el observer al player nuevo. */
+  window.addEventListener('yt-navigate-finish', _startObs);
+  window.addEventListener('yt-page-data-updated', _startObs);
 
 })();"#;
 
@@ -1074,11 +1143,76 @@ fn run_ytdlp(
 // antes de que se abra cualquier socket TCP. Más eficiente que el proxy TCP.
 //                                       ─
 
-/// Registra el filtro WebResourceRequested en el WebView2 dado.
-/// Bloquea todos los sub-recursos cuyo host esté en ADBLOCK_NET_DOMAINS.
-/// Debe llamarse desde el hilo principal de la ventana (donde vive el COM).
+/// Contador global de peticiones bloqueadas, para mostrarlo en la UI.
+static ADS_BLOCKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Total de anuncios y trackers bloqueados desde que arrancó el navegador.
+fn ads_blocked_count() -> u64 {
+    ADS_BLOCKED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Traduce el contexto de recurso de WebView2 al vocabulario de adblock-rust.
+/// Los tipos importan: muchas reglas de EasyList sólo aplican a `$script`,
+/// `$image` o `$subdocument`, así que mandar todo como "other" perdería match.
 #[cfg(target_os = "windows")]
-fn attach_adblock_filter(webview: &wry::WebView) {
+fn resource_type_name(ctx: COREWEBVIEW2_WEB_RESOURCE_CONTEXT) -> &'static str {
+    match ctx.0 {
+        1  => "sub_frame",      // iframe (la navegación principal se filtra aparte)
+        2  => "stylesheet",
+        3  => "image",
+        4  => "media",
+        5  => "font",
+        6  => "script",
+        7  => "xmlhttprequest",
+        8  => "xmlhttprequest", // fetch()
+        11 => "websocket",
+        14 => "ping",
+        15 => "csp_report",
+        _  => "other",
+    }
+}
+
+/// ¿Son `uri` y `source` el mismo documento?
+///
+/// Importa para no confundir la navegación principal con un iframe: si
+/// el usuario escribe `https://sitio.com` WebView2 pide `https://sitio.com/`,
+/// y una comparación literal fallaría. Tratar la página principal como
+/// sub-recurso podría bloquear el sitio entero.
+fn same_document(uri: &str, source: &str) -> bool {
+    fn normalize(u: &str) -> &str {
+        let no_fragment = u.split('#').next().unwrap_or(u);
+        no_fragment.strip_suffix('/').unwrap_or(no_fragment)
+    }
+    !source.is_empty() && normalize(uri) == normalize(source)
+}
+
+/// Lee la URI de una petición WebView2 como `String`.
+///
+/// # Safety
+/// `request` debe ser una interfaz COM válida; la llamada devuelve un PWSTR
+/// asignado por WebView2 cuyo contenido copiamos antes de devolverlo.
+#[cfg(target_os = "windows")]
+unsafe fn request_uri(request: &ICoreWebView2WebResourceRequest) -> Option<String> {
+    let mut uri = windows::core::PWSTR::null();
+    request.Uri(&mut uri).ok()?;
+    if uri.is_null() {
+        return None;
+    }
+    let len = (0..).take_while(|&i| *uri.0.add(i) != 0).count();
+    let slice = std::slice::from_raw_parts(uri.0, len);
+    Some(String::from_utf16_lossy(slice))
+}
+
+/// Registra el filtro WebResourceRequested en el WebView2 dado.
+///
+/// Cada sub-recurso (script, imagen, iframe, XHR, fetch, websocket) pasa por
+/// el motor adblock-rust con EasyList + EasyPrivacy + uBlock cargados.
+/// Debe llamarse desde el hilo principal de la ventana, donde vive el COM.
+///
+/// `current_url` es la URL del documento de la pestaña: adblock-rust la usa
+/// para distinguir first-party de third-party y para las reglas `$domain=`.
+#[cfg(target_os = "windows")]
+fn attach_adblock_filter(webview: &wry::WebView, current_url: Arc<std::sync::Mutex<String>>) {
     use wry::WebViewExtWindows;
 
     unsafe {
@@ -1088,6 +1222,17 @@ fn attach_adblock_filter(webview: &wry::WebView) {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("[adblock-wv2] No se pudo obtener ICoreWebView2: {e}");
+                return;
+            }
+        };
+
+        // El entorno es quien fabrica respuestas sintéticas. Sin él no se
+        // puede cancelar una petición: hace falta *darle* una respuesta.
+        let environment = match core.cast::<ICoreWebView2_2>().and_then(|c| c.Environment()) {
+            Ok(env) => env,
+            Err(e) => {
+                eprintln!("[adblock-wv2] No se pudo obtener ICoreWebView2Environment: {e}");
+                eprintln!("[adblock-wv2] El bloqueo de red queda DESACTIVADO en esta pestaña.");
                 return;
             }
         };
@@ -1110,23 +1255,55 @@ fn attach_adblock_filter(webview: &wry::WebView) {
                         Err(_) => return Ok(()),
                     };
 
-                    // Obtener la URI de la petición
-                    let uri = {
-                        let mut uri = windows::core::PWSTR::null();
-                        if request.Uri(&mut uri).is_err() { return Ok(()); }
-                        // Convertir PWSTR a String de forma segura
-                        if uri.is_null() { return Ok(()); }
-                        let len = (0..).take_while(|&i| *uri.0.add(i) != 0).count();
-                        let slice = std::slice::from_raw_parts(uri.0, len);
-                        String::from_utf16_lossy(slice)
-                    };
+                    let Some(uri) = request_uri(&request) else { return Ok(()); };
+                    if uri.is_empty() {
+                        return Ok(());
+                    }
 
-                    // Comprobar si el host está bloqueado
-                    if adblock_url_blocked(&uri) {
-                        println!("[adblock-wv2] BLOQUEADO: {uri}");
-                        // Cancelar la petición devolviendo una respuesta 204 vacía.
-                        // SetResponse con None cancela la carga en WebView2.
-                        let _ = args.SetResponse(None);
+                    // Tipo de recurso — determina qué reglas de EasyList aplican.
+                    let mut ctx = COREWEBVIEW2_WEB_RESOURCE_CONTEXT::default();
+                    if args.ResourceContext(&mut ctx).is_err() {
+                        return Ok(());
+                    }
+                    let rtype = resource_type_name(ctx);
+
+                    // Documento que origina la petición.
+                    let source = current_url
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .clone();
+
+                    // La navegación principal ya pasó por SecurityLayer en
+                    // with_navigation_handler; no volver a filtrarla aquí.
+                    if rtype == "sub_frame" && same_document(&uri, &source) {
+                        return Ok(());
+                    }
+
+                    if !flux_engine::adblocker::should_block(&uri, &source, rtype) {
+                        return Ok(());
+                    }
+
+                    // ── Cancelar de verdad ────────────────────────────────
+                    // En WebView2, Response = null es el valor por defecto y
+                    // significa "seguí a la red". Para bloquear hay que
+                    // asignar una respuesta real; ésta va vacía con 403.
+                    match environment.CreateWebResourceResponse(
+                        None,
+                        403,
+                        windows::core::w!("Blocked by Flux"),
+                        windows::core::w!("Access-Control-Allow-Origin: *\r\nContent-Length: 0"),
+                    ) {
+                        Ok(response) => {
+                            if args.SetResponse(&response).is_ok() {
+                                let n = ADS_BLOCKED
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                                    + 1;
+                                if cfg!(debug_assertions) {
+                                    println!("[adblock] #{n} bloqueado ({rtype}): {uri}");
+                                }
+                            }
+                        }
+                        Err(e) => eprintln!("[adblock] CreateWebResourceResponse falló: {e}"),
                     }
 
                     Ok(())
@@ -1138,128 +1315,54 @@ fn attach_adblock_filter(webview: &wry::WebView) {
         if let Err(e) = result {
             eprintln!("[adblock-wv2] add_WebResourceRequested falló: {e}");
         } else {
-            println!(
-                "[adblock-wv2] Filtro de red activo ({} dominios bloqueados)",
-                ADBLOCK_NET_DOMAINS.len()
-            );
+            println!("[adblock-wv2] Filtro de red activo (EasyList + EasyPrivacy + uBlock)");
         }
     }
 }
 
 #[cfg(not(target_os = "windows"))]
-fn attach_adblock_filter(_webview: &wry::WebView) {}
+fn attach_adblock_filter(_webview: &wry::WebView, _current_url: Arc<std::sync::Mutex<String>>) {}
 
-//                                       ─
-// Proxy HTTP de bloqueo de anuncios a nivel de red
-// Intercepta tráfico HTTP (petición directa) y HTTPS (CONNECT tunneling)
-// para bloquear dominios de redes publicitarias antes de que el navegador
-// los descargue — igual que hace Brave con su filtro de redes.
-//                                       ─
+/// Inyecta el filtrado cosmético que las listas definen para *este* sitio.
+///
+/// El CSS del init script es genérico e igual para toda la web. Esto añade
+/// las reglas específicas del dominio (`youtube.com##.ytd-ad-slot-renderer`)
+/// más los scriptlets de uBlock, que son los que desarman los detectores de
+/// adblock. Se re-inyecta en cada navegación porque los selectores cambian
+/// según la URL.
+fn inject_cosmetic_filters(
+    views: &std::collections::HashMap<String, wry::WebView>,
+    native_id: &str,
+    url: &str,
+) {
+    let Some(view) = views.get(native_id) else { return };
 
-/// Dominios de redes publicitarias y de rastreo bloqueados a nivel de red.
-static ADBLOCK_NET_DOMAINS: &[&str] = &[
-    // Google Ads / DoubleClick
-    "doubleclick.net",
-    "googlesyndication.com",
-    "googleadservices.com",
-    "googletagmanager.com",
-    "googletagservices.com",
-    "adservice.google.com",
-    "pagead2.googlesyndication.com",
-    "tpc.googlesyndication.com",
-    "securepubads.g.doubleclick.net",
-    "stats.g.doubleclick.net",
-    "cm.g.doubleclick.net",
-    "td.doubleclick.net",
-    "ad.doubleclick.net",
-    // Redes programáticas
-    "adnxs.com",
-    "criteo.com",
-    "criteo.net",
-    "ads.eu.criteo.com",
-    "static.criteo.net",
-    "amazon-adsystem.com",
-    "outbrain.com",
-    "taboola.com",
-    "pubmatic.com",
-    "simage2.pubmatic.com",
-    "openx.net",
-    "rubiconproject.com",
-    "moatads.com",
-    "adsafeprotected.com",
-    "scorecardresearch.com",
-    "quantserve.com",
-    "bidswitch.net",
-    "smartadserver.com",
-    "advertising.com",
-    "contextweb.com",
-    "casalemedia.com",
-    "33across.com",
-    "sharethrough.com",
-    "triplelift.com",
-    "indexworm.com",
-    "appnexus.com",
-    "yieldlab.net",
-    "lijit.com",
-    "sonobi.com",
-    "sovrn.com",
-    "undertone.com",
-    "spotxchange.com",
-    "teads.tv",
-    "mgid.com",
-    "revcontent.com",
-    // Social / tracking pixels
-    "connect.facebook.net",
-    "tr.snapchat.com",
-    "ads.twitter.com",
-    "ads.linkedin.com",
-    "bat.bing.com",
-    "c.msn.com",
-    // YouTube ad tracking específico (no el player)
-    "youtube.com/api/stats/ads",
-    "youtube.com/pagead",
-    "youtubei.googleapis.com/youtubei/v1/log_event",
-];
-
-/// Rutas de URL HTTP que indican tráfico publicitario aunque el dominio no esté listado.
-static ADBLOCK_NET_PATHS: &[&str] = &[
-    "/pagead/",
-    "/pcs/activeview",
-    "/pagead/lvz",
-    "/api/stats/ads",
-    "/ptracking",
-    "/adview",
-    "/ads/get",
-];
-
-/// Devuelve `true` si el host (sin puerto) pertenece a una red de anuncios.
-fn adblock_host_blocked(host: &str) -> bool {
-    // Excluir explícitamente localhost para no romper la UI del chrome
-    let h = host.split(':').next().unwrap_or(host).trim().to_lowercase();
-    if h == "localhost" || h == "127.0.0.1" || h == "::1" {
-        return false;
+    let (css, scriptlets) = flux_engine::adblocker::cosmetic_payload(url);
+    if css.is_empty() && scriptlets.is_empty() {
+        return;
     }
-    ADBLOCK_NET_DOMAINS.iter().any(|&blocked| {
-        if blocked.contains('/') {
-            // Es una ruta completa (ej. "youtube.com/pagead")
-            false
-        } else {
-            h == blocked || h.ends_with(&format!(".{blocked}"))
-        }
-    })
-}
 
-/// Devuelve `true` si la URL HTTP completa debe bloquearse.
-fn adblock_url_blocked(url: &str) -> bool {
-    // Extraer host de la URL absoluta HTTP
-    let rest = url.strip_prefix("http://").unwrap_or(url);
-    let host_and_path = rest.split('?').next().unwrap_or(rest);
-    let host = host_and_path.split('/').next().unwrap_or("").split(':').next().unwrap_or("");
-    if adblock_host_blocked(host) {
-        return true;
+    let mut js = String::new();
+
+    if !css.is_empty() {
+        // Pasar el CSS como literal JSON evita romper el script con comillas
+        // o barras invertidas presentes en los selectores.
+        let css_literal = serde_json::to_string(&css).unwrap_or_else(|_| "\"\"".into());
+        js.push_str(&format!(
+            "(function(){{var s=document.getElementById('_flux_cosmetic');\
+             if(!s){{s=document.createElement('style');s.id='_flux_cosmetic';\
+             (document.head||document.documentElement).appendChild(s);}}\
+             s.textContent={css_literal};}})();"
+        ));
     }
-    // Comprobar rutas
-    ADBLOCK_NET_PATHS.iter().any(|&p| url.contains(p))
+
+    if !scriptlets.is_empty() {
+        // Los scriptlets se auto-encapsulan; aislarlos para que un fallo en
+        // uno no impida aplicar el CSS ni rompa la página.
+        js.push_str(&format!("try{{{scriptlets}}}catch(e){{}}"));
+    }
+
+    let _ = view.evaluate_script(&js);
 }
 
 fn make_content_view(
@@ -1275,6 +1378,12 @@ fn make_content_view(
     let proxy_dl_s = proxy.clone();
     let proxy_dl_d = proxy.clone();
     let id_nav     = native_id.clone();
+
+    // URL del documento actual de esta pestaña. El filtro de anuncios la
+    // necesita para decidir first-party vs third-party: sin ella, adblock-rust
+    // trataría todo como third-party y bloquearía recursos propios del sitio.
+    let current_url     = Arc::new(std::sync::Mutex::new(String::new()));
+    let current_url_nav = current_url.clone();
     let id_win     = native_id.clone();
     let id_dl_s    = native_id.clone();
     let id_dl_d    = native_id.clone();
@@ -1290,6 +1399,12 @@ fn make_content_view(
         })
         .with_devtools(cfg!(debug_assertions))
         .with_navigation_handler(move |url: String| {
+            // Registrar el documento antes de decidir: el filtro de red empieza
+            // a ver sub-recursos en cuanto la navegación se acepta.
+            if url.starts_with("http://") || url.starts_with("https://") {
+                *current_url_nav.lock().unwrap_or_else(|e| e.into_inner()) = url.clone();
+            }
+
             if url.starts_with("about:")
                 || url.starts_with("flux://")
                 || url.starts_with("data:")
@@ -1415,13 +1530,18 @@ fn make_content_view(
 
     // Registrar el filtro WebResourceRequested (bloqueo a nivel de red, estilo Brave).
     // Corre en el hilo principal justo después de crear el WebView2.
-    attach_adblock_filter(&view);
+    attach_adblock_filter(&view, current_url);
     view
 }
 
 //                                       ─
 
 fn main() {
+    //   0. Motor de bloqueo — construirlo antes de abrir ninguna pestaña ─
+    // Tarda ~200 ms parseando ~150.000 reglas. Hacerlo ahora evita que la
+    // primera navegación cargue anuncios mientras el motor todavía arranca.
+    flux_engine::adblocker::warm_up();
+
     //   1. Engine HTTP en hilo secundario                 ─
     let engine_handle = std::thread::spawn(|| {
         let rt = match tokio::runtime::Runtime::new() {
@@ -2297,11 +2417,24 @@ fn main() {
             //   Actualizar barra de direcciones en React          ─
             // También actualiza loaded_urls para evitar recarga al volver a esta pestaña
             Event::UserEvent(UserEvent::UpdateAddressBar { native_id, url }) => {
+                // Filtrado cosmético específico del sitio (EasyList + uBlock).
+                // El CSS estático del init script cubre lo genérico; esto añade
+                // las reglas que sólo aplican a este dominio y los scriptlets
+                // que neutralizan detectores de adblock.
+                inject_cosmetic_filters(&content_views.borrow(), &native_id, &url);
+
                 loaded_urls.borrow_mut().insert(native_id, url.clone());
                 let safe = url.replace('\\', "\\\\").replace('\'', "\\'");
                 let _ = chrome_view.evaluate_script(&format!(
                     "window.dispatchEvent(new CustomEvent('orion:urlchange',\
                      {{detail:{{url:'{safe}'}}}}));"
+                ));
+
+                // Contador acumulado de bloqueos, para el escudo de la UI.
+                let _ = chrome_view.evaluate_script(&format!(
+                    "window.dispatchEvent(new CustomEvent('flux:adblock',\
+                     {{detail:{{blocked:{}}}}}));",
+                    ads_blocked_count()
                 ));
             }
 

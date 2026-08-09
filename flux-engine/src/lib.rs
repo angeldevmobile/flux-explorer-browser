@@ -17,6 +17,7 @@ pub mod ranker;
 pub mod api;
 pub mod js;
 pub mod security;
+pub mod adblocker;
 
 /// Ejecuta el pipeline completo: HTML → DisplayList.
 /// Incluye ejecución de JavaScript y aplicación de mutaciones DOM.
