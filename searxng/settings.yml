@@ -1,7 +1,11 @@
 use_default_settings: true
 
 server:
-  secret_key: "orion-secret-key"
+  # La clave real se pasa por la variable de entorno SEARXNG_SECRET_KEY,
+  # que sobreescribe este valor. Nunca poner aquí una clave de verdad:
+  # este archivo está en un repositorio público.
+  # Generar una con: python -c "import secrets; print(secrets.token_hex(32))"
+  secret_key: "cambiar-por-variable-de-entorno"
   limiter: false
   image_proxy: true
 
