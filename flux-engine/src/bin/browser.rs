@@ -276,8 +276,9 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     '.ytp-ad-player-overlay-layout',
     '.ytp-ad-player-overlay-instream-info',
     '.ytp-ad-action-interstitial',
-    '.ytp-ad-skip-button-slot',
-    '.ytp-ad-skip-button-modern',
+    /* Los botones de saltar NO se ocultan a propósito: ocultarlos deja el
+       anuncio imposible de saltar, ni por el auto-skip (un elemento con
+       display:none no se puede pulsar) ni a mano por el usuario. */
     '.ytp-ad-feedback-dialog-container',
     '.ytp-ad-persistent-progress-bar-container',
     '.ad-showing .video-ads',
@@ -438,19 +439,39 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
 
      Sólo se hace si quedan formatos utilizables: si no, es preferible ver el
      anuncio a quedarse sin video. */
+  /* Interruptor de seguridad. Si el opt-out rompe la reproducción, se activa
+     y ya no se vuelve a intentar en toda la sesión: reproducir siempre pesa
+     más que bloquear el anuncio. */
+  var _SABR_OFF_KEY = '_flux_sabr_off';
+
+  function _sabrOptOutApagado() {
+    try { return sessionStorage.getItem(_SABR_OFF_KEY) === '1'; } catch(e) { return true; }
+  }
+
+  function _apagarSabrOptOut() {
+    try { sessionStorage.setItem(_SABR_OFF_KEY, '1'); } catch(e) {}
+  }
+
   function _optOutOfSabr(sd) {
+    if (_sabrOptOutApagado()) return;
     if (!sd || typeof sd !== 'object') return;
     if (!sd.serverAbrStreamingUrl) return;
 
+    /* En vivo no tiene formatos progresivos equivalentes: quitarle SABR
+       lo deja sin nada que reproducir. */
+    if (sd.hlsManifestUrl || sd.dashManifestUrl) return;
+
+    /* Sólo cuenta una URL directa. signatureCipher exige descifrado con la
+       función del player y suele venir estrangulado — si nos apoyamos en eso
+       el video falla con "Se produjo un error". */
     var formats = [].concat(sd.adaptiveFormats || [], sd.formats || []);
-    var usable = 0;
+    var directas = 0;
     for (var i = 0; i < formats.length; i++) {
-      var f = formats[i];
-      if (f && (f.url || f.signatureCipher || f.cipher)) usable++;
+      if (formats[i] && formats[i].url) directas++;
     }
-    if (usable > 0) {
-      try { delete sd.serverAbrStreamingUrl; } catch(e) {}
-    }
+    if (directas === 0) return;
+
+    try { delete sd.serverAbrStreamingUrl; } catch(e) {}
   }
 
   function _stripAdsFromPlayerJson(json) {
@@ -560,12 +581,26 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
 
   /* Silenciar y saltarse el anuncio de video lo antes posible */
   /*   4 & 5. Auto‑saltar anuncios                ─ */
+  /* ¿Se puede pulsar de verdad?
+     No sirve `offsetParent !== null`: da null tanto para display:none como
+     para cualquier elemento con position:fixed, y YouTube pone el botón de
+     saltar en contenedores fijos. Medimos la caja real. */
+  function _esPulsable(el) {
+    if (!el) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    var cs = window.getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none';
+  }
+
   function _trySkip() {
-    /* Botones de saltar */
+    /* Botones de saltar. El orden va de lo más específico a lo más genérico. */
     var skipSels = [
       '.ytp-skip-ad-button',
       '.ytp-ad-skip-button',
       '.ytp-ad-skip-button-modern',
+      '.ytp-skip-ad-button__text',
+      '[id^="skip-button"]',
       '[class*="skip-ad"]',
       '[class*="skipButton"]',
       'button.ytp-ad-overlay-close-button',
@@ -573,24 +608,40 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     for (var si = 0; si < skipSels.length; si++) {
       var btns = document.querySelectorAll(skipSels[si]);
       for (var bi = 0; bi < btns.length; bi++) {
-        if (btns[bi].offsetParent !== null) {
+        if (_esPulsable(btns[bi])) {
           btns[bi].click();
           return true;
         }
       }
     }
-    /* Avanzar el video al final si hay anuncio reproduciéndose */
-    var adPlaying = document.querySelector('.ad-showing') ||
-                    document.querySelector('.ytp-ad-player-overlay-layout');
-    if (adPlaying) {
-      var video = document.querySelector('video');
-      if (video && isFinite(video.duration) && video.duration > 0) {
-        video.volume   = 0;
-        video.muted    = true;
-        video.currentTime = video.duration;
-        return true;
-      }
+
+    /* Sin botón disponible todavía: adelantar el anuncio hasta el final.
+       Sólo con la señal estricta — si nos equivocamos acá, saltamos el
+       video que el usuario quería ver. */
+    if (!_adConfirmado()) return false;
+
+    var player = document.querySelector('#movie_player') || document;
+    var video  = player.querySelector('video');
+    if (!video) return false;
+
+    video.muted  = true;
+    video.volume = 0;
+
+    /* En directos duration es Infinity, así que `isFinite` descartaba el
+       salto y el anuncio se veía entero. Durante el anuncio el rango
+       seekable sí termina: usamos su final. */
+    var destino = 0;
+    if (isFinite(video.duration) && video.duration > 0) {
+      destino = video.duration;
+    } else if (video.seekable && video.seekable.length > 0) {
+      destino = video.seekable.end(video.seekable.length - 1);
     }
+    if (destino > 0 && isFinite(destino)) {
+      try { video.currentTime = destino; return true; } catch(e) {}
+    }
+
+    /* Último recurso: acelerar el anuncio al máximo permitido. */
+    try { video.playbackRate = 16; return true; } catch(e) {}
     return false;
   }
 
@@ -615,12 +666,47 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
      mientras mirás un video normal. */
   var _adTimer = null;
 
+  /* Detección amplia: sólo habilita ocultar overlays y pulsar el botón de
+     saltar. Un falso positivo aquí no hace daño. */
   function _adShowing() {
-    return !!document.querySelector('.ad-showing, .ytp-ad-player-overlay-layout, .ad-interrupting');
+    return !!document.querySelector(
+      '.ad-showing, .ad-interrupting, .ytp-ad-player-overlay-layout, ' +
+      '.ytp-ad-player-overlay, .ytp-skip-ad'
+    );
   }
+
+  /* Detección estricta: exigida antes de mover currentTime o playbackRate.
+     Un falso positivo aquí adelantaría el video de verdad hasta el final,
+     así que sólo confiamos en las clases que YouTube pone en el player
+     únicamente mientras corre un anuncio. */
+  function _adConfirmado() {
+    var p = document.querySelector('#movie_player');
+    if (!p) return false;
+    return p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting');
+  }
+
+  /* Devolver el player a la normalidad. Imprescindible: si _trySkip tuvo que
+     acelerar el anuncio a 16x y no se restaura, el video de verdad arranca
+     acelerado y con el audio desactivado. */
+  function _restaurarPlayer() {
+    var player = document.querySelector('#movie_player') || document;
+    var video  = player.querySelector('video');
+    if (!video) return;
+    if (video.playbackRate !== 1) { try { video.playbackRate = 1; } catch(e) {} }
+    if (video.muted && !_silenciadoPorUsuario) { try { video.muted = false; } catch(e) {} }
+  }
+
+  /* Respetar el silencio si lo puso el usuario, no el auto-skip. */
+  var _silenciadoPorUsuario = false;
+  document.addEventListener('volumechange', function(ev) {
+    if (!_adShowing() && ev.target && ev.target.tagName === 'VIDEO') {
+      _silenciadoPorUsuario = ev.target.muted;
+    }
+  }, true);
 
   function _stopAdTimer() {
     if (_adTimer !== null) { clearInterval(_adTimer); _adTimer = null; }
+    _restaurarPlayer();
   }
 
   function _react() {
@@ -657,6 +743,34 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
      así que hay que re-enganchar el observer al player nuevo. */
   window.addEventListener('yt-navigate-finish', _startObs);
   window.addEventListener('yt-page-data-updated', _startObs);
+
+  /* ── Red de seguridad del opt-out de SABR ──────────────────────
+     Si el player muestra "Se produjo un error", asumimos que fuimos
+     nosotros: apagamos el opt-out para toda la sesión y recargamos una
+     sola vez. La segunda pasada ya no toca serverAbrStreamingUrl, así
+     que el video reproduce aunque vuelva el anuncio.
+     El propio flag evita bucles: una vez apagado no se vuelve a entrar. */
+  function _playerEnError() {
+    if (document.querySelector('.ytp-error')) return true;
+    var m = document.querySelector('yt-player-error-message-renderer');
+    return !!(m && m.offsetParent !== null);
+  }
+
+  function _vigilarErrorDePlayer() {
+    if (_sabrOptOutApagado()) return;   /* ya estamos en modo seguro */
+    if (!_playerEnError()) return;
+    _apagarSabrOptOut();
+    location.reload();
+  }
+
+  /* Vigilar sólo durante los primeros segundos tras cargar: si el video
+     arrancó bien, no hay nada que corregir y el temporizador se apaga. */
+  var _vigiladas = 0;
+  var _vigilante = setInterval(function() {
+    _vigiladas++;
+    if (_vigiladas > 20 || _sabrOptOutApagado()) { clearInterval(_vigilante); return; }
+    _vigilarErrorDePlayer();
+  }, 1000);
 
 })();"#;
 
