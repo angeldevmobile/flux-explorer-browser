@@ -1,7 +1,9 @@
 import db from "../config/db";
 import crypto from "crypto";
 
-const AI_PROXY_URL = process.env.AI_PROXY_URL || "http://34.229.141.6:3001";
+// HTTPS obligatorio: por aquí viajan los prompts del usuario, que
+// pueden incluir el contenido de la página que está leyendo.
+const AI_PROXY_URL = process.env.AI_PROXY_URL || "https://flux-explorer-browser-production-0a6e.up.railway.app";
 
 async function callProxy(prompt: string): Promise<string> {
   const res = await fetch(`${AI_PROXY_URL}/ai/generate`, {

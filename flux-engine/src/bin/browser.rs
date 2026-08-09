@@ -200,8 +200,10 @@ fn spawn_embedded_backend() -> Option<std::process::Child> {
         .env("JWT_SECRET", &jwt_secret)
         .env("JWT_EXPIRE", "7d")
         .env("FRONTEND_URL", "http://localhost:5173")
-        .env("SEARXNG_URL", "http://34.229.141.6:8080")
-        .env("AI_PROXY_URL", "http://34.229.141.6:3001")
+        // Por estas dos URLs viajan las búsquedas y los prompts del usuario:
+        // tienen que ir por HTTPS y contra servicios que el proyecto controle.
+        .env("SEARXNG_URL", "https://flux-explorer-browser-production.up.railway.app")
+        .env("AI_PROXY_URL", "https://flux-explorer-browser-production-0a6e.up.railway.app")
         .stdin(std::process::Stdio::null())
         .stdout(log_file.unwrap_or(std::process::Stdio::null()))
         .stderr(log_file2.unwrap_or(std::process::Stdio::null()))

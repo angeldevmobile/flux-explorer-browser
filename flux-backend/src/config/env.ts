@@ -24,5 +24,8 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:5173",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS || "",
-  SEARXNG_URL: process.env.SEARXNG_URL || "http://34.229.141.6:8080",
+  // HTTPS obligatorio: por aquí viajan las búsquedas del usuario. La IP
+  // anterior iba sin cifrar y además apuntaba a una máquina que ya no
+  // figura en la cuenta de AWS del proyecto.
+  SEARXNG_URL: process.env.SEARXNG_URL || "https://flux-explorer-browser-production.up.railway.app",
 };
