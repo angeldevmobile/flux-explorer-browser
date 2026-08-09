@@ -442,14 +442,28 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   /* Interruptor de seguridad. Si el opt-out rompe la reproducción, se activa
      y ya no se vuelve a intentar en toda la sesión: reproducir siempre pesa
      más que bloquear el anuncio. */
-  var _SABR_OFF_KEY = '_flux_sabr_off';
+  /* El interruptor se guarda POR VIDEO, no por sesión. Si fuera global, un
+     único fallo dejaría sin opt-out todos los videos siguientes — y como
+     YouTube encadena uno tras otro en autoplay, bastaba un tropiezo para
+     que volvieran los anuncios el resto de la sesión. */
+  function _videoActual() {
+    try {
+      var m = /[?&]v=([A-Za-z0-9_-]{6,})/.exec(location.search || '');
+      if (m) return m[1];
+      m = /\/(shorts|embed|live)\/([A-Za-z0-9_-]{6,})/.exec(location.pathname || '');
+      if (m) return m[2];
+    } catch(e) {}
+    return '';
+  }
+
+  function _sabrOffKey() { return '_flux_sabr_off:' + _videoActual(); }
 
   function _sabrOptOutApagado() {
-    try { return sessionStorage.getItem(_SABR_OFF_KEY) === '1'; } catch(e) { return true; }
+    try { return sessionStorage.getItem(_sabrOffKey()) === '1'; } catch(e) { return true; }
   }
 
   function _apagarSabrOptOut() {
-    try { sessionStorage.setItem(_SABR_OFF_KEY, '1'); } catch(e) {}
+    try { sessionStorage.setItem(_sabrOffKey(), '1'); } catch(e) {}
   }
 
   function _optOutOfSabr(sd) {
@@ -585,12 +599,21 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
      No sirve `offsetParent !== null`: da null tanto para display:none como
      para cualquier elemento con position:fixed, y YouTube pone el botón de
      saltar en contenedores fijos. Medimos la caja real. */
-  function _esPulsable(el) {
+  /* ¿El elemento se ve realmente en pantalla?
+     Comprobar sólo que exista en el DOM no sirve: YouTube deja escondidos
+     tanto el botón de saltar como el cartel de error, y darlos por buenos
+     provoca clicks fantasma y recargas innecesarias. */
+  function _esVisible(el) {
     if (!el) return false;
     var r = el.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return false;
     var cs = window.getComputedStyle(el);
-    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none';
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+  }
+
+  function _esPulsable(el) {
+    if (!_esVisible(el)) return false;
+    return window.getComputedStyle(el).pointerEvents !== 'none';
   }
 
   function _trySkip() {
@@ -751,9 +774,10 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
      que el video reproduce aunque vuelva el anuncio.
      El propio flag evita bucles: una vez apagado no se vuelve a entrar. */
   function _playerEnError() {
-    if (document.querySelector('.ytp-error')) return true;
-    var m = document.querySelector('yt-player-error-message-renderer');
-    return !!(m && m.offsetParent !== null);
+    /* El cartel de error vive siempre en el DOM, oculto. Sólo cuenta si de
+       verdad se está mostrando; si no, recargaríamos en cada video. */
+    return _esVisible(document.querySelector('.ytp-error')) ||
+           _esVisible(document.querySelector('yt-player-error-message-renderer'));
   }
 
   function _vigilarErrorDePlayer() {
@@ -763,14 +787,25 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     location.reload();
   }
 
-  /* Vigilar sólo durante los primeros segundos tras cargar: si el video
-     arrancó bien, no hay nada que corregir y el temporizador se apaga. */
-  var _vigiladas = 0;
-  var _vigilante = setInterval(function() {
-    _vigiladas++;
-    if (_vigiladas > 20 || _sabrOptOutApagado()) { clearInterval(_vigilante); return; }
-    _vigilarErrorDePlayer();
-  }, 1000);
+  /* Vigilar sólo durante los primeros segundos tras cargar cada video: si
+     arrancó bien no hay nada que corregir y el temporizador se apaga.
+     Hay que re-armarlo en cada navegación SPA — antes sólo corría tras una
+     carga completa de documento, así que en los videos encadenados por
+     autoplay el vigilante nunca llegaba a actuar. */
+  var _vigilante = null;
+
+  function _armarVigilante() {
+    if (_vigilante !== null) clearInterval(_vigilante);
+    var vueltas = 0;
+    _vigilante = setInterval(function() {
+      vueltas++;
+      if (vueltas > 20 || _sabrOptOutApagado()) { clearInterval(_vigilante); _vigilante = null; return; }
+      _vigilarErrorDePlayer();
+    }, 1000);
+  }
+
+  _armarVigilante();
+  window.addEventListener('yt-navigate-finish', _armarVigilante);
 
 })();"#;
 
