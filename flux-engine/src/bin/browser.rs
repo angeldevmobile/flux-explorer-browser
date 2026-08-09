@@ -1862,6 +1862,12 @@ fn main() {
     // primera navegación cargue anuncios mientras el motor todavía arranca.
     flux_engine::adblocker::warm_up();
 
+    // Refrescar listas y scriptlets en segundo plano, para el arranque
+    // siguiente. Importa sobre todo por YouTube: cuando Google cambia SABR,
+    // el scriptlet de Brave se corrige en horas y así llega solo, sin tener
+    // que recompilar y redistribuir el instalador.
+    flux_engine::adblocker::actualizar_listas_en_segundo_plano();
+
     //   1. Engine HTTP en hilo secundario                 ─
     let engine_handle = std::thread::spawn(|| {
         let rt = match tokio::runtime::Runtime::new() {

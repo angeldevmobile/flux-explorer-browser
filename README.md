@@ -713,10 +713,21 @@ flux-browser/
 
 ## Lo que viene — Post Beta 1
 
+> Las notas técnicas detalladas del bloqueador y del consumo de recursos —con
+> cifras medidas, trampas conocidas y lo descartado tras probarlo— están en
+> **[PENDIENTE.md](PENDIENTE.md)**.
+
+### Hecho
+| Feature | Estado |
+|---|---|
+| **Bloqueador general con EasyList** | Motor `adblock` (Brave) con EasyList + EasyPrivacy + uBlock y los scriptlets de Brave. Las listas se actualizan solas cada 24 h en `%LOCALAPPDATA%\Flux\filters`, así que las correcciones llegan sin recompilar |
+| **Pausar el render de lo invisible** | `SetIsVisible(false)` al minimizar y en pestañas de fondo: el uso de GPU cae de 4,75 % a 0 % y ya no escala con el número de pestañas |
+| **Suspensión de pestañas** | `TrySuspend`/`Resume` de WebView2: −27 % de RAM con 5 pestañas (2.257 → 1.638 MB), reanudando sin recargar y sin cortar el audio de fondo |
+
 ### Prioridad alta
 | Feature | Descripción |
 |---|---|
-| **Bloqueador general con EasyList** | Integrar el crate `adblock` (el motor de Brave, open source en Rust) con descarga automática de listas EasyList + EasyPrivacy cada 3 días — cobertura de ~100k dominios sin mantenimiento manual |
+| **Portar `flux-backend` a Rust** | 74 MB de RAM y un proceso menos; el `.exe` baja de 131 MB a ~33 MB. Son 7.671 líneas, 22 rutas y 16 modelos: hay que hacerlo por fases ([plan](PENDIENTE.md)) |
 | **Integrar FluxSoftRenderer** | Conectar el pipeline Rust al `content_view` — primer paso para reemplazar WebView2 como renderer de páginas |
 | **Flexbox layout** | Necesario para que cualquier página moderna cargue correctamente en el motor propio |
 | **Imágenes (`<img>`)** | Decodificación y pintado en el pixel buffer del renderer |
@@ -724,6 +735,7 @@ flux-browser/
 ### Prioridad media
 | Feature | Descripción |
 |---|---|
+| **Fusionar los dos WebViews del chrome** | Hoy conviven `chrome_view` y `content_view` superpuestos. Unificarlos ahorra un renderer (~100 MB), pero implica rehacer z-order, eventos y arrastre de ventana: riesgo alto sobre una UI que ya funciona |
 | **Sincronización entre dispositivos** | Sync cifrado de favoritos, historial y preferencias usando la cuenta Flux existente |
 | **Cookie jar por dominio** | Persistencia de sesiones en el motor propio (login en sitios) |
 | **Caché HTTP** | Soporte de `ETag` / `Cache-Control` para reducir peticiones repetidas |
