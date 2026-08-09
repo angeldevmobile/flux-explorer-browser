@@ -23,6 +23,18 @@ if (!API_TOKEN) {
   process.exit(1);
 }
 
+// El modelo lo decide el proxy, no el cliente.
+//
+// Motivo: el nombre del modelo iba escrito en el backend, que se compila
+// dentro del ejecutable de Flux. Cuando Google retira un modelo (paso con
+// gemini-2.0-flash, que empezo a devolver 404) habria que recompilar los
+// 132 MB y pedirle a cada usuario que se los descargue otra vez.
+//
+// Teniendolo aqui, cambiar de modelo es editar una variable en Railway.
+// Para ver los disponibles con tu clave:
+//   curl "https://generativelanguage.googleapis.com/v1beta/models?key=TU_CLAVE"
+const MODELO = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 //   Autenticacion                        
@@ -154,10 +166,10 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // Generacion de texto
 app.post('/ai/generate', requiereToken, limitaPeticiones, async (req, res) => {
   try {
-    const { prompt, model = 'gemini-2.0-flash' } = req.body;
+    const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt requerido' });
 
-    const m = genAI.getGenerativeModel({ model });
+    const m = genAI.getGenerativeModel({ model: MODELO });
     const result = await m.generateContent(prompt);
     res.json({ text: result.response.text() });
   } catch (err) {
@@ -169,10 +181,10 @@ app.post('/ai/generate', requiereToken, limitaPeticiones, async (req, res) => {
 // Generacion con imagen (vision)
 app.post('/ai/generate-vision', requiereToken, limitaPeticiones, async (req, res) => {
   try {
-    const { imageBase64, mimeType, prompt, model = 'gemini-2.0-flash' } = req.body;
+    const { imageBase64, mimeType, prompt } = req.body;
     if (!imageBase64 || !prompt) return res.status(400).json({ error: 'imageBase64 y prompt requeridos' });
 
-    const m = genAI.getGenerativeModel({ model });
+    const m = genAI.getGenerativeModel({ model: MODELO });
     const result = await m.generateContent([
       { inlineData: { data: imageBase64, mimeType: mimeType || 'image/jpeg' } },
       prompt,
