@@ -140,6 +140,43 @@ fn get_or_create_jwt_secret() -> String {
     }
 }
 
+/// Identificador anónimo de esta instalación.
+///
+/// Sirve para repartir la cuota diaria del asistente de IA entre equipos sin
+/// pedirle al usuario que se registre ni que consiga una API key. Es un UUID
+/// aleatorio: no contiene nada del equipo ni de la persona, y no se usa para
+/// nada más que contar consultas.
+///
+/// Se puede regenerar borrando el archivo, así que no sirve como control
+/// estricto — para eso está el tope global del proxy.
+fn device_id() -> String {
+    use rand::Rng;
+
+    let app_dir = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("Flux"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("flux"));
+    let ruta = app_dir.join("device_id");
+
+    if let Ok(existente) = std::fs::read_to_string(&ruta) {
+        let limpio = existente.trim();
+        if !limpio.is_empty() {
+            return limpio.to_string();
+        }
+    }
+
+    let mut rng = rand::thread_rng();
+    let nuevo: String = (0..32)
+        .map(|_| {
+            const HEX: &[u8] = b"0123456789abcdef";
+            HEX[rng.gen_range(0..16)] as char
+        })
+        .collect();
+
+    let _ = std::fs::create_dir_all(&app_dir);
+    let _ = std::fs::write(&ruta, &nuevo);
+    nuevo
+}
+
 /// Extrae el backend embebido a %LOCALAPPDATA%\Flux\ y lo lanza.
 /// Se extrae solo si no existe o si el tamaño cambió (actualización).
 #[cfg(feature = "bundle-backend")]
@@ -204,6 +241,18 @@ fn spawn_embedded_backend() -> Option<std::process::Child> {
         // tienen que ir por HTTPS y contra servicios que el proyecto controle.
         .env("SEARXNG_URL", "https://flux-explorer-browser-production.up.railway.app")
         .env("AI_PROXY_URL", "https://flux-explorer-browser-production-0a6e.up.railway.app")
+        // Token del proxy de IA. No es un secreto fuerte: viaja dentro de
+        // este ejecutable y cualquiera puede extraerlo con `strings`. Sirve
+        // para frenar el abuso casual; la cuota de Gemini la protege el
+        // límite de peticiones del propio proxy.
+        .env(
+            "FLUX_API_TOKEN",
+            option_env!("FLUX_API_TOKEN")
+                .unwrap_or("_HU29LBQs5TuahqSKCrR5yckuPBlzHhnInhzq2n3oa8"),
+        )
+        // Identificador anónimo de la instalación: reparte la cuota diaria
+        // del asistente entre equipos sin pedir registro ni API key.
+        .env("FLUX_DEVICE_ID", device_id())
         .stdin(std::process::Stdio::null())
         .stdout(log_file.unwrap_or(std::process::Stdio::null()))
         .stderr(log_file2.unwrap_or(std::process::Stdio::null()))

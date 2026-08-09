@@ -5,10 +5,17 @@ import crypto from "crypto";
 // pueden incluir el contenido de la página que está leyendo.
 const AI_PROXY_URL = process.env.AI_PROXY_URL || "https://flux-explorer-browser-production-0a6e.up.railway.app";
 
+const AI_PROXY_TOKEN = process.env.FLUX_API_TOKEN || "";
+const AI_DEVICE_ID = process.env.FLUX_DEVICE_ID || "";
+
 async function callProxy(prompt: string): Promise<string> {
   const res = await fetch(`${AI_PROXY_URL}/ai/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-flux-token': AI_PROXY_TOKEN,
+      'x-flux-device': AI_DEVICE_ID,
+    },
     body: JSON.stringify({ prompt }),
   });
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);

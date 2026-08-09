@@ -2,10 +2,25 @@
 // pueden incluir el contenido de la página que está leyendo.
 const AI_PROXY_URL = process.env.AI_PROXY_URL || "https://flux-explorer-browser-production-0a6e.up.railway.app";
 
+// El proxy exige este token. Ojo: viaja dentro del ejecutable que se
+// distribuye, así que frena el abuso casual pero no es un secreto fuerte.
+// La cuota la protege de verdad el límite de peticiones del propio proxy.
+const AI_PROXY_TOKEN = process.env.FLUX_API_TOKEN || "";
+
+const AI_DEVICE_ID = process.env.FLUX_DEVICE_ID || "";
+
+const cabeceras = () => ({
+  'Content-Type': 'application/json',
+  'x-flux-token': AI_PROXY_TOKEN,
+  // Identificador anónimo de la instalación: el proxy lo usa para repartir
+  // la cuota diaria entre equipos sin pedirle nada al usuario.
+  'x-flux-device': AI_DEVICE_ID,
+});
+
 async function callProxy(prompt: string, model = 'gemini-2.0-flash'): Promise<string> {
   const res = await fetch(`${AI_PROXY_URL}/ai/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabeceras(),
     body: JSON.stringify({ prompt, model }),
   });
   if (!res.ok) throw new Error(`AI proxy error: ${res.status}`);
@@ -21,7 +36,7 @@ async function callProxyVision(
 ): Promise<string> {
   const res = await fetch(`${AI_PROXY_URL}/ai/generate-vision`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: cabeceras(),
     body: JSON.stringify({ imageBase64, mimeType, prompt, model }),
   });
   if (!res.ok) throw new Error(`AI proxy vision error: ${res.status}`);
