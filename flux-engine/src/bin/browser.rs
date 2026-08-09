@@ -316,6 +316,26 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   _injectCSS();
   document.addEventListener('DOMContentLoaded', _injectCSS, { once: true });
 
+  /*   1b. Colapsar lo que el filtro de red bloqueó          ─
+     Cuando se cancela una petición el elemento sigue en el DOM con su
+     espacio reservado, y se ve un bloque blanco donde estaba el anuncio.
+     Los eventos 'error' no burbujean, así que hay que escuchar en captura. */
+  document.addEventListener('error', function(ev) {
+    var el = ev.target;
+    if (!el || !el.tagName) return;
+    var tag = el.tagName.toLowerCase();
+    if (tag !== 'img' && tag !== 'iframe' && tag !== 'embed' && tag !== 'object') return;
+
+    el.style.setProperty('display', 'none', 'important');
+
+    /* Si el contenedor existía sólo para reservarle sitio al anuncio,
+       queda un hueco igual. Colapsarlo si no le queda nada visible. */
+    var p = el.parentElement;
+    if (p && p.children.length === 1 && !(p.textContent || '').trim()) {
+      p.style.setProperty('display', 'none', 'important');
+    }
+  }, true);
+
   /*   2. Interceptar fetch/XHR — bloquear redes de anuncios  ─ */
   var BLOCKED_PATTERNS = [
     'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
@@ -410,11 +430,35 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     return node;
   }
 
+  /* Salir de SABR (server-side ad insertion).
+     Con SABR, YouTube cose el anuncio dentro del mismo stream y por el mismo
+     dominio que el video, así que ningún filtro de red puede separarlos.
+     Quitando serverAbrStreamingUrl el player vuelve a adaptiveFormats
+     clásicos, donde el anuncio sí viaja aparte y se puede bloquear.
+
+     Sólo se hace si quedan formatos utilizables: si no, es preferible ver el
+     anuncio a quedarse sin video. */
+  function _optOutOfSabr(sd) {
+    if (!sd || typeof sd !== 'object') return;
+    if (!sd.serverAbrStreamingUrl) return;
+
+    var formats = [].concat(sd.adaptiveFormats || [], sd.formats || []);
+    var usable = 0;
+    for (var i = 0; i < formats.length; i++) {
+      var f = formats[i];
+      if (f && (f.url || f.signatureCipher || f.cipher)) usable++;
+    }
+    if (usable > 0) {
+      try { delete sd.serverAbrStreamingUrl; } catch(e) {}
+    }
+  }
+
   function _stripAdsFromPlayerJson(json) {
     try {
       var isString = typeof json === 'string';
       var obj = isString ? JSON.parse(json) : json;
       obj = _stripAds(obj, 0);
+      if (obj && obj.streamingData) _optOutOfSabr(obj.streamingData);
       return isString ? JSON.stringify(obj) : obj;
     } catch(e) { return json; }
   }
@@ -482,7 +526,11 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
     try {
       Object.defineProperty(window, name, {
         get: function() { return _val; },
-        set: function(v) { _val = _stripAds(v, 0); },
+        set: function(v) {
+          v = _stripAds(v, 0);
+          if (v && v.streamingData) _optOutOfSabr(v.streamingData);
+          _val = v;
+        },
         configurable: true,
       });
     } catch(e) {}
@@ -628,6 +676,11 @@ enum UserEvent {
     NavigateDirect { native_id: String, url: String },
     /// Actualiza la barra de direcciones en React y el estado de URL en Rust.
     UpdateAddressBar { native_id: String, url: String },
+    /// El documento nuevo ya existe y empezó a cargar: momento correcto para
+    /// inyectar el filtrado cosmético. Hacerlo en el navigation_handler no
+    /// sirve — ahí todavía vive el documento anterior y el CSS se pierde
+    /// cuando éste se destruye.
+    PageLoadStarted { native_id: String, url: String },
     ChromeHeight(f64),
     /// Recargar la página actual.
     Reload,
@@ -1342,6 +1395,14 @@ fn inject_cosmetic_filters(
         return;
     }
 
+    if cfg!(debug_assertions) {
+        println!(
+            "[adblock] cosmética inyectada en {url} ({} bytes CSS, {} bytes JS)",
+            css.len(),
+            scriptlets.len()
+        );
+    }
+
     let mut js = String::new();
 
     if !css.is_empty() {
@@ -1415,7 +1476,15 @@ fn make_content_view(
             }
 
             if url.starts_with("http://") || url.starts_with("https://") {
-                let security = SecurityLayer::new();
+                // Ojo: aquí sólo se decide la navegación de nivel superior.
+                // El bloqueo de anuncios NO debe actuar en este punto —
+                // su lista hace `contains()` sobre la URL entera, así que
+                // un simple `?utm_source=taboola.com` tumbaba la página y
+                // dejaba al usuario en la pantalla de error. Los anuncios
+                // se filtran por sub-recurso en el WebResourceRequested,
+                // que sí distingue host, tipo y first/third-party.
+                let mut security = SecurityLayer::new();
+                security.block_ads = false;
                 match security.check_url(&url) {
                     UrlDecision::Block(reason) => {
                         println!("[flux-security] Bloqueado ({reason:?}): {url}");
@@ -1476,6 +1545,18 @@ fn make_content_view(
         })
         .with_initialization_script(offline_init_script)
         .with_initialization_script(ADBLOCK_INIT_SCRIPT)
+        .with_on_page_load_handler({
+            let proxy_load = proxy.clone();
+            let id_load    = native_id.clone();
+            move |event, url| {
+                if matches!(event, wry::PageLoadEvent::Started) {
+                    let _ = proxy_load.send_event(UserEvent::PageLoadStarted {
+                        native_id: id_load.clone(),
+                        url,
+                    });
+                }
+            }
+        })
         .with_custom_protocol("fluxperm".into(), {
             let permissions = permissions.clone();
             let proxy_perm  = proxy.clone();
@@ -2317,8 +2398,21 @@ fn main() {
                 }
                 *active_native_id.borrow_mut() = native_id.clone();
 
+                // Sólo en builds de desarrollo: FLUX_TEST_URL reemplaza la
+                // página inicial, para poder verificar el filtrado contra un
+                // sitio concreto sin tocar la UI. Nunca se compila en release.
+                #[cfg(debug_assertions)]
+                let url = if url == "about:blank" {
+                    std::env::var("FLUX_TEST_URL").unwrap_or(url)
+                } else { url };
+
                 if url.starts_with("http://") || url.starts_with("https://") {
-                    let security = SecurityLayer::new();
+                    // Mismo criterio que en el navigation_handler: no tirar la
+                    // navegación entera por un match de anuncios. Aquí además
+                    // se cargaba la página de error "blocked_tracker", que es
+                    // lo que dejaba al usuario con "recargá la pantalla".
+                    let mut security = SecurityLayer::new();
+                    security.block_ads = false;
                     let final_url = match security.check_url(&url) {
                         UrlDecision::Block(reason) => {
                             println!("[flux-security] Bloqueado ({reason:?}): {url}");
@@ -2416,13 +2510,15 @@ fn main() {
 
             //   Actualizar barra de direcciones en React          ─
             // También actualiza loaded_urls para evitar recarga al volver a esta pestaña
-            Event::UserEvent(UserEvent::UpdateAddressBar { native_id, url }) => {
+            Event::UserEvent(UserEvent::PageLoadStarted { native_id, url }) => {
                 // Filtrado cosmético específico del sitio (EasyList + uBlock).
                 // El CSS estático del init script cubre lo genérico; esto añade
                 // las reglas que sólo aplican a este dominio y los scriptlets
                 // que neutralizan detectores de adblock.
                 inject_cosmetic_filters(&content_views.borrow(), &native_id, &url);
+            }
 
+            Event::UserEvent(UserEvent::UpdateAddressBar { native_id, url }) => {
                 loaded_urls.borrow_mut().insert(native_id, url.clone());
                 let safe = url.replace('\\', "\\\\").replace('\'', "\\'");
                 let _ = chrome_view.evaluate_script(&format!(
@@ -2441,4 +2537,45 @@ fn main() {
             _ => {}
         }
     });
+}
+
+// ── Tests ─────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn documento_principal_se_reconoce_pese_a_la_barra_final() {
+        // WebView2 normaliza "https://sitio.com" a "https://sitio.com/".
+        // Sin esto, la página principal se trataría como iframe y podría
+        // bloquearse entera.
+        assert!(same_document("https://sitio.com/", "https://sitio.com"));
+        assert!(same_document("https://sitio.com", "https://sitio.com/"));
+        assert!(same_document("https://sitio.com/a#seccion", "https://sitio.com/a"));
+    }
+
+    #[test]
+    fn un_iframe_no_es_el_documento_principal() {
+        assert!(!same_document(
+            "https://ads.ejemplo.com/frame.html",
+            "https://sitio.com/"
+        ));
+        // Sin documento conocido no se puede afirmar que sean el mismo.
+        assert!(!same_document("https://sitio.com/", ""));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn los_tipos_de_recurso_se_mapean_al_vocabulario_de_easylist() {
+        use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_WEB_RESOURCE_CONTEXT as Ctx;
+        // Muchas reglas sólo aplican a $script o $image; un mapeo incorrecto
+        // haría que esas reglas nunca coincidan.
+        assert_eq!(resource_type_name(Ctx(6)), "script");
+        assert_eq!(resource_type_name(Ctx(3)), "image");
+        assert_eq!(resource_type_name(Ctx(2)), "stylesheet");
+        assert_eq!(resource_type_name(Ctx(1)), "sub_frame");
+        assert_eq!(resource_type_name(Ctx(8)), "xmlhttprequest");
+        assert_eq!(resource_type_name(Ctx(99)), "other");
+    }
 }

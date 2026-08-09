@@ -218,6 +218,50 @@ mod tests {
     }
 
     #[test]
+    fn bloquea_anuncios_reales_con_su_tipo_de_recurso() {
+        // El tipo importa: muchas reglas de EasyList llevan $script, $image
+        // o $subdocument. Si el mapeo desde WebView2 fuera incorrecto, estos
+        // casos dejarían de coincidir aunque el motor esté bien cargado.
+        let casos: &[(&str, &str)] = &[
+            ("https://securepubads.g.doubleclick.net/gampad/ads?iu=/1234", "xmlhttprequest"),
+            ("https://tpc.googlesyndication.com/simgad/1234567890", "image"),
+            ("https://googleads.g.doubleclick.net/pagead/ads?client=ca-pub-1", "sub_frame"),
+            ("https://www.google-analytics.com/collect?v=1&tid=UA-1", "image"),
+            ("https://connect.facebook.net/en_US/fbevents.js", "script"),
+            ("https://sb.scorecardresearch.com/beacon.js", "script"),
+            ("https://ib.adnxs.com/ttj?id=123", "sub_frame"),
+        ];
+        for (url, rtype) in casos {
+            assert!(
+                should_block(url, PAGE, rtype),
+                "debería bloquear {url} como {rtype}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_rompe_sitios_grandes() {
+        // Falsos positivos aquí serían peores que dejar pasar un anuncio:
+        // romperían el login, el carrito o el editor de estos sitios.
+        let casos: &[(&str, &str, &str)] = &[
+            ("https://github.com/session", "https://github.com/login", "xmlhttprequest"),
+            ("https://www.gstatic.com/recaptcha/releases/abc/recaptcha.js", PAGE, "script"),
+            ("https://cdn.jsdelivr.net/npm/vue@3/dist/vue.js", PAGE, "script"),
+            ("https://fonts.gstatic.com/s/roboto/v30/font.woff2", PAGE, "font"),
+            ("https://i.imgur.com/abc123.jpg", PAGE, "image"),
+            ("https://api.stripe.com/v1/tokens", "https://tienda.com/pago", "xmlhttprequest"),
+            ("https://www.youtube.com/s/player/abc/player_ias.vflset/base.js",
+             "https://www.youtube.com/watch?v=abc", "script"),
+        ];
+        for (url, source, rtype) in casos {
+            assert!(
+                !should_block(url, source, rtype),
+                "NO debería bloquear {url} ({rtype})"
+            );
+        }
+    }
+
+    #[test]
     fn cosmetica_devuelve_selectores_para_sitios_conocidos() {
         let (css, _js) = cosmetic_payload("https://www.youtube.com/watch?v=abc");
         assert!(!css.is_empty(), "YouTube debería tener reglas cosméticas");
