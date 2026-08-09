@@ -12,6 +12,7 @@
 
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
+use adblock::resources::Resource;
 use adblock::Engine;
 
 use std::sync::OnceLock;
@@ -26,6 +27,11 @@ static UBLOCK_FILTERS: &str = include_str!("../../filters/ublock-filters.txt");
 static UBLOCK_PRIVACY: &str = include_str!("../../filters/ublock-privacy.txt");
 static UBLOCK_BADWARE: &str = include_str!("../../filters/ublock-badware.txt");
 static UBLOCK_QUICK_FIXES: &str = include_str!("../../filters/ublock-quick-fixes.txt");
+
+/// Scriptlets de Brave (`##+js(...)`). Sin esto las reglas de scriptlet de
+/// las listas quedan inertes: el motor las reconoce pero no tiene el código
+/// que deben inyectar, y `injected_script` sale siempre vacío.
+static BRAVE_RESOURCES: &str = include_str!("../../filters/brave-resources.json");
 
 /// Reglas propias de Flux, aplicadas encima de las listas públicas.
 /// Van al final para que puedan sobreescribir con `@@` si hace falta.
@@ -42,6 +48,16 @@ static FLUX_RULES: &str = r#"
 ! Pixel tracking genérico que EasyPrivacy a veces deja pasar.
 ||googletagservices.com^
 ||googlesyndication.com^
+
+! ── YouTube: el spinner que deja el anuncio bloqueado ─────────
+! Al bloquear el anuncio, YouTube conserva el `backoffTimeMs` que tenía
+! reservado para él y el video se queda 4-16 s en el spinner. Este
+! scriptlet de Brave intercepta la respuesta SABR, reescribe ese backoff
+! y fuerza una sesión sin slot de anuncio.
+! Trabaja *con* SABR en vez de intentar salirse, que es lo que dejaba el
+! player en "Se produjo un error".
+www.youtube.com##+js(brave-yt-sabr-fix.js)
+m.youtube.com##+js(brave-yt-sabr-fix.js)
 "#;
 
 // ── Motor ─────────────────────────────────────────────────────
@@ -69,7 +85,18 @@ fn build_engine() -> Engine {
         set.add_filter_list(list.to_string(), opts);
     }
 
-    let engine = Engine::new_with_filter_set(set);
+    let mut engine = Engine::new_with_filter_set(set);
+
+    // Cargar los scriptlets: sin ellos las reglas `##+js(...)` no inyectan nada.
+    match serde_json::from_str::<Vec<Resource>>(BRAVE_RESOURCES) {
+        Ok(recursos) => {
+            let n = recursos.len();
+            engine.use_resources(recursos);
+            println!("[adblock] {n} scriptlets cargados");
+        }
+        Err(e) => eprintln!("[adblock] No se pudieron leer los scriptlets: {e}"),
+    }
+
     println!(
         "[adblock] Motor listo en {} ms (EasyList + EasyPrivacy + uBlock)",
         t0.elapsed().as_millis()
@@ -265,6 +292,28 @@ mod tests {
     fn cosmetica_devuelve_selectores_para_sitios_conocidos() {
         let (css, _js) = cosmetic_payload("https://www.youtube.com/watch?v=abc");
         assert!(!css.is_empty(), "YouTube debería tener reglas cosméticas");
+    }
+
+    #[test]
+    fn los_scriptlets_se_inyectan_de_verdad() {
+        // Sin `use_resources()` el motor reconoce las reglas `##+js(...)` pero
+        // no tiene el código que deben inyectar, y esto sale vacío en silencio.
+        // Estuvo así hasta que se detectó: todos los scriptlets, inertes.
+        let (_css, js) = cosmetic_payload("https://www.youtube.com/watch?v=abc");
+        assert!(!js.is_empty(), "YouTube debería recibir scriptlets");
+        assert!(
+            js.contains("backoffTimeMs"),
+            "debería inyectarse el fix de SABR, que es el que quita el spinner"
+        );
+    }
+
+    #[test]
+    fn los_scriptlets_no_se_inyectan_donde_no_tocan() {
+        let (_css, js) = cosmetic_payload("https://www.wikipedia.org/");
+        assert!(
+            !js.contains("backoffTimeMs"),
+            "el fix de YouTube no debe filtrarse a otros sitios"
+        );
     }
 
     #[test]

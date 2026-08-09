@@ -442,58 +442,23 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
   /* Interruptor de seguridad. Si el opt-out rompe la reproducción, se activa
      y ya no se vuelve a intentar en toda la sesión: reproducir siempre pesa
      más que bloquear el anuncio. */
-  /* El interruptor se guarda POR VIDEO, no por sesión. Si fuera global, un
-     único fallo dejaría sin opt-out todos los videos siguientes — y como
-     YouTube encadena uno tras otro en autoplay, bastaba un tropiezo para
-     que volvieran los anuncios el resto de la sesión. */
-  function _videoActual() {
-    try {
-      var m = /[?&]v=([A-Za-z0-9_-]{6,})/.exec(location.search || '');
-      if (m) return m[1];
-      m = /\/(shorts|embed|live)\/([A-Za-z0-9_-]{6,})/.exec(location.pathname || '');
-      if (m) return m[2];
-    } catch(e) {}
-    return '';
-  }
+  /* Nota sobre SABR
+     Aquí hubo un intento de "salirse" de SABR borrando serverAbrStreamingUrl
+     para forzar formatos clásicos. Fallaba: cuando YouTube sólo entrega
+     formatos cifrados el player se quedaba en "Se produjo un error", y hacía
+     falta un vigilante que recargara la página — varios segundos perdidos.
 
-  function _sabrOffKey() { return '_flux_sabr_off:' + _videoActual(); }
-
-  function _sabrOptOutApagado() {
-    try { return sessionStorage.getItem(_sabrOffKey()) === '1'; } catch(e) { return true; }
-  }
-
-  function _apagarSabrOptOut() {
-    try { sessionStorage.setItem(_sabrOffKey(), '1'); } catch(e) {}
-  }
-
-  function _optOutOfSabr(sd) {
-    if (_sabrOptOutApagado()) return;
-    if (!sd || typeof sd !== 'object') return;
-    if (!sd.serverAbrStreamingUrl) return;
-
-    /* En vivo no tiene formatos progresivos equivalentes: quitarle SABR
-       lo deja sin nada que reproducir. */
-    if (sd.hlsManifestUrl || sd.dashManifestUrl) return;
-
-    /* Sólo cuenta una URL directa. signatureCipher exige descifrado con la
-       función del player y suele venir estrangulado — si nos apoyamos en eso
-       el video falla con "Se produjo un error". */
-    var formats = [].concat(sd.adaptiveFormats || [], sd.formats || []);
-    var directas = 0;
-    for (var i = 0; i < formats.length; i++) {
-      if (formats[i] && formats[i].url) directas++;
-    }
-    if (directas === 0) return;
-
-    try { delete sd.serverAbrStreamingUrl; } catch(e) {}
-  }
+     Ahora lo resuelve el scriptlet `brave-yt-sabr-fix.js`, que se inyecta
+     desde las listas (ver FLUX_RULES en src/adblocker/mod.rs). Ese trabaja
+     *con* SABR: reescribe el `backoffTimeMs` que YouTube reserva para el
+     anuncio y fuerza una sesión sin slot publicitario, sin tocar el stream.
+     Borrar serverAbrStreamingUrl aquí lo dejaría sin nada que parchear. */
 
   function _stripAdsFromPlayerJson(json) {
     try {
       var isString = typeof json === 'string';
       var obj = isString ? JSON.parse(json) : json;
       obj = _stripAds(obj, 0);
-      if (obj && obj.streamingData) _optOutOfSabr(obj.streamingData);
       return isString ? JSON.stringify(obj) : obj;
     } catch(e) { return json; }
   }
@@ -563,7 +528,6 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
         get: function() { return _val; },
         set: function(v) {
           v = _stripAds(v, 0);
-          if (v && v.streamingData) _optOutOfSabr(v.streamingData);
           _val = v;
         },
         configurable: true,
@@ -773,39 +737,6 @@ const ADBLOCK_INIT_SCRIPT: &str = r#"(function() {
      sola vez. La segunda pasada ya no toca serverAbrStreamingUrl, así
      que el video reproduce aunque vuelva el anuncio.
      El propio flag evita bucles: una vez apagado no se vuelve a entrar. */
-  function _playerEnError() {
-    /* El cartel de error vive siempre en el DOM, oculto. Sólo cuenta si de
-       verdad se está mostrando; si no, recargaríamos en cada video. */
-    return _esVisible(document.querySelector('.ytp-error')) ||
-           _esVisible(document.querySelector('yt-player-error-message-renderer'));
-  }
-
-  function _vigilarErrorDePlayer() {
-    if (_sabrOptOutApagado()) return;   /* ya estamos en modo seguro */
-    if (!_playerEnError()) return;
-    _apagarSabrOptOut();
-    location.reload();
-  }
-
-  /* Vigilar sólo durante los primeros segundos tras cargar cada video: si
-     arrancó bien no hay nada que corregir y el temporizador se apaga.
-     Hay que re-armarlo en cada navegación SPA — antes sólo corría tras una
-     carga completa de documento, así que en los videos encadenados por
-     autoplay el vigilante nunca llegaba a actuar. */
-  var _vigilante = null;
-
-  function _armarVigilante() {
-    if (_vigilante !== null) clearInterval(_vigilante);
-    var vueltas = 0;
-    _vigilante = setInterval(function() {
-      vueltas++;
-      if (vueltas > 20 || _sabrOptOutApagado()) { clearInterval(_vigilante); _vigilante = null; return; }
-      _vigilarErrorDePlayer();
-    }, 1000);
-  }
-
-  _armarVigilante();
-  window.addEventListener('yt-navigate-finish', _armarVigilante);
 
 })();"#;
 
@@ -1525,6 +1456,24 @@ fn attach_adblock_filter(webview: &wry::WebView, current_url: Arc<std::sync::Mut
 #[cfg(not(target_os = "windows"))]
 fn attach_adblock_filter(_webview: &wry::WebView, _current_url: Arc<std::sync::Mutex<String>>) {}
 
+/// Marca un WebView2 como visible o no.
+///
+/// Sin esto, un WebView2 en modo ventana-hija sigue componiendo y
+/// decodificando aunque la ventana esté minimizada: Chromium detecta la
+/// oclusión por su cuenta sólo cuando es dueño de la ventana de nivel
+/// superior, y aquí no lo es. Medido: Flux minimizado gastaba más GPU que
+/// Edge a pantalla completa.
+#[cfg(target_os = "windows")]
+fn set_webview_visible(view: &wry::WebView, visible: bool) {
+    use wry::WebViewExtWindows;
+    unsafe {
+        let _ = view.controller().SetIsVisible(visible);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_webview_visible(_view: &wry::WebView, _visible: bool) {}
+
 /// Inyecta el filtrado cosmético que las listas definen para *este* sitio.
 ///
 /// El CSS del init script es genérico e igual para toda la web. Esto añade
@@ -1918,6 +1867,9 @@ fn main() {
     let content_views: std::cell::RefCell<std::collections::HashMap<String, wry::WebView>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
     let active_native_id: std::cell::RefCell<String> = std::cell::RefCell::new(String::new());
+    // Recuerda si ya pausamos el render por minimizado, para no repetir la
+    // llamada COM en cada Resized.
+    let oculto_por_minimizar: std::cell::Cell<bool> = std::cell::Cell::new(false);
     let loaded_urls: std::cell::RefCell<std::collections::HashMap<String, String>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
 
@@ -2136,6 +2088,24 @@ fn main() {
                 let scale = window.scale_factor();
                 let w  = phys_size.width  as f64 / scale;
                 let h  = phys_size.height as f64 / scale;
+
+                // Al minimizar, dejar de renderizar. Un WebView2 hijo no recibe
+                // la señal de oclusión de Chromium, así que sin esto seguiría
+                // decodificando video y componiendo píxeles que nadie ve.
+                let minimizada = window.is_minimized();
+                if minimizada != oculto_por_minimizar.get() {
+                    oculto_por_minimizar.set(minimizada);
+                    let visible = !minimizada;
+                    set_webview_visible(&chrome_view, visible);
+                    for v in content_views.borrow().values() {
+                        set_webview_visible(v, visible);
+                    }
+                    println!(
+                        "[flux-browser] Ventana {} → render {}",
+                        if minimizada { "minimizada" } else { "restaurada" },
+                        if visible { "activo" } else { "en pausa" }
+                    );
+                }
 
                 // Ignorar eventos espurios de inicialización en Windows (frameless+transparent
                 // dispara un Resized con tamaño casi nulo antes de llegar al tamaño real).
