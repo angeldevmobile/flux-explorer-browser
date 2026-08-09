@@ -1,8 +1,12 @@
 [package]
 name = "flux-engine"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 edition = "2021"
 description = "Flux browser rendering engine"
+license = "MIT"
+authors = ["Angel Gabriel Zapata Lopez"]
+repository = "https://github.com/angeldevmobile/flux-explorer-browser"
+readme = "../README.md"
 
 [features]
 # Activa el empaquetado de la UI React (dist/) dentro del binario.
