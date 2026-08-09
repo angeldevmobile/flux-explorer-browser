@@ -317,6 +317,48 @@ mod tests {
     }
 
     #[test]
+    fn el_filtrado_no_puede_bloquear_el_hilo_de_la_ui() {
+        // should_block() se llama desde el handler WebResourceRequested, que
+        // corre en el hilo de la ventana. Si cada consulta costara milisegundos,
+        // una página con 200 peticiones congelaría la UI y daría el clásico
+        // "la ventana no responde".
+        warm_up();
+
+        let urls = [
+            "https://securepubads.g.doubleclick.net/tag/js/gpt.js",
+            "https://www.ejemplo.com/app.js",
+            "https://cdn.jsdelivr.net/npm/vue@3/dist/vue.js",
+            "https://tpc.googlesyndication.com/simgad/123",
+            "https://fonts.gstatic.com/s/roboto/v30/font.woff2",
+        ];
+        let pagina = "https://www.ejemplo.com/articulo";
+
+        let n = 10_000;
+        let t0 = std::time::Instant::now();
+        for i in 0..n {
+            let _ = should_block(urls[i % urls.len()], pagina, "script");
+        }
+        let por_consulta = t0.elapsed().as_nanos() / n as u128;
+        println!("Coste por consulta: {por_consulta} ns");
+
+        // El presupuesto sólo se exige en release, que es lo que se distribuye.
+        // Sin optimizar, el motor de expresiones regulares va ~90× más lento
+        // (medido: 5 µs en release contra 468 µs en debug), así que aplicar
+        // aquí el mismo umbral haría fallar el test por el perfil, no por una
+        // regresión real.
+        #[cfg(not(debug_assertions))]
+        {
+            // 50 µs por consulta: una página con 300 peticiones gastaría 15 ms
+            // repartidos, imperceptible. Si esto se dispara hay que sacar el
+            // filtrado del hilo de la UI.
+            assert!(
+                por_consulta < 50_000,
+                "cada consulta cuesta {por_consulta} ns: bloquearía la UI"
+            );
+        }
+    }
+
+    #[test]
     fn bench_engine_build() {
         let t0 = std::time::Instant::now();
         warm_up();

@@ -26,6 +26,8 @@ use tao::{
     window::{Icon, WindowBuilder},
 };
 use wry::{Rect, WebViewBuilder};
+#[cfg(target_os = "windows")]
+use wry::WebViewBuilderExtWindows;
 use std::sync::Arc;
 use flux_engine::security::{SecurityLayer, UrlDecision};
 
@@ -35,11 +37,17 @@ use webview2_com::{
     Microsoft::Web::WebView2::Win32::{
         ICoreWebView2,
         ICoreWebView2_2,
+        ICoreWebView2_3,
+        ICoreWebView2_8,
+        ICoreWebView2_19,
         ICoreWebView2WebResourceRequest,
         ICoreWebView2WebResourceRequestedEventArgs,
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW,
+        COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
         COREWEBVIEW2_WEB_RESOURCE_CONTEXT,
         COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
     },
+    TrySuspendCompletedHandler,
     WebResourceRequestedEventHandler,
 };
 #[cfg(target_os = "windows")]
@@ -1456,6 +1464,52 @@ fn attach_adblock_filter(webview: &wry::WebView, current_url: Arc<std::sync::Mut
 #[cfg(not(target_os = "windows"))]
 fn attach_adblock_filter(_webview: &wry::WebView, _current_url: Arc<std::sync::Mutex<String>>) {}
 
+/// Argumentos de línea de comandos para el motor Chromium de WebView2.
+///
+/// Cuidado al tocar esto: fijar argumentos propios **reemplaza por completo**
+/// los que pone wry por defecto. Hay que reproducirlos o se pierden funciones.
+/// En particular `--autoplay-policy`, sin el cual los videos dejan de
+/// reproducirse solos, y el `--disable-features` de wry, que quita el menú
+/// mini de Edge y SmartScreen.
+///
+/// `--disable-features` sólo admite una aparición: si se repite, la última
+/// gana y las anteriores se pierden. Por eso va todo en una sola lista.
+fn browser_arguments() -> String {
+    // Permite A/B de banderas sin recompilar, sólo en desarrollo.
+    #[cfg(debug_assertions)]
+    if let Ok(v) = std::env::var("FLUX_BROWSER_ARGS") {
+        if !v.is_empty() {
+            return v;
+        }
+    }
+
+    let features_desactivadas = [
+        // ── Heredadas de wry: no quitarlas ──
+        "msWebOOUI",              // menú mini de Edge
+        "msPdfOOUI",              // visor PDF fuera de proceso
+        "msSmartScreenProtection",// SmartScreen (envía URLs a Microsoft)
+        // ── Añadidas por Flux: funciones que no usamos ──
+        "Translate",              // traductor integrado de Edge
+        "MediaRouter",            // descubrimiento de Chromecast en segundo plano
+        "OptimizationHints",      // descarga modelos de sugerencias de Google
+        "OptimizationHintsFetching",
+        "AutofillServerCommunication", // autocompletado contra servidores
+    ];
+
+    [
+        format!("--disable-features={}", features_desactivadas.join(",")),
+        // Reproducir sin gesto del usuario: lo daba wry por defecto.
+        "--autoplay-policy=no-user-gesture-required".into(),
+        // Tráfico de fondo que no aporta nada a un navegador local-first.
+        "--disable-background-networking".into(),
+        "--disable-component-update".into(),
+        // Sin informes de fallo: ahorra el proceso crashpad y no manda
+        // volcados a Microsoft.
+        "--disable-breakpad".into(),
+    ]
+    .join(" ")
+}
+
 /// Marca un WebView2 como visible o no.
 ///
 /// Sin esto, un WebView2 en modo ventana-hija sigue componiendo y
@@ -1473,6 +1527,92 @@ fn set_webview_visible(view: &wry::WebView, visible: bool) {
 
 #[cfg(not(target_os = "windows"))]
 fn set_webview_visible(_view: &wry::WebView, _visible: bool) {}
+
+/// Pide al WebView2 que reduzca su consumo de memoria.
+///
+/// Es la vía suave: WebView2 suelta cachés y buffers que puede rehacer, sin
+/// congelar la página. Segura para aplicar en cuanto una pestaña pasa a
+/// segundo plano — no interrumpe temporizadores, descargas ni audio.
+#[cfg(target_os = "windows")]
+fn set_webview_low_memory(view: &wry::WebView, bajo: bool) {
+    use wry::WebViewExtWindows;
+    unsafe {
+        let Ok(core) = view.controller().CoreWebView2() else { return };
+        let Ok(v19) = core.cast::<ICoreWebView2_19>() else { return };
+        let nivel = if bajo {
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+        } else {
+            COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+        };
+        let _ = v19.SetMemoryUsageTargetLevel(nivel);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_webview_low_memory(_view: &wry::WebView, _bajo: bool) {}
+
+/// ¿La pestaña está reproduciendo audio?
+///
+/// Suspender una pestaña que suena de fondo cortaría la música: es de los
+/// fallos de experiencia más molestos que puede tener un navegador, así que
+/// se consulta siempre antes de suspender.
+#[cfg(target_os = "windows")]
+fn webview_reproduce_audio(view: &wry::WebView) -> bool {
+    use wry::WebViewExtWindows;
+    unsafe {
+        let Ok(core) = view.controller().CoreWebView2() else { return false };
+        let Ok(v8) = core.cast::<ICoreWebView2_8>() else { return false };
+        let mut sonando = windows::Win32::Foundation::BOOL(0);
+        if v8.IsDocumentPlayingAudio(&mut sonando).is_err() {
+            // Ante la duda, tratarla como si sonara: no suspender.
+            return true;
+        }
+        sonando.as_bool()
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn webview_reproduce_audio(_view: &wry::WebView) -> bool { false }
+
+/// Suspende una pestaña de segundo plano, liberando su memoria de verdad.
+///
+/// A diferencia de destruir el WebView y recrearlo, `TrySuspend` conserva el
+/// estado: al volver, `Resume` la reactiva sin recargar ni perder el scroll.
+/// Requiere que la vista ya esté marcada como no visible.
+///
+/// Devuelve `false` si no se intentó (por audio en curso o error COM).
+#[cfg(target_os = "windows")]
+fn try_suspend_webview(view: &wry::WebView) -> bool {
+    use wry::WebViewExtWindows;
+
+    if webview_reproduce_audio(view) {
+        return false;
+    }
+
+    unsafe {
+        let Ok(core) = view.controller().CoreWebView2() else { return false };
+        let Ok(v3) = core.cast::<ICoreWebView2_3>() else { return false };
+        let handler = TrySuspendCompletedHandler::create(Box::new(|_result, _exitoso| Ok(())));
+        v3.TrySuspend(&handler).is_ok()
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn try_suspend_webview(_view: &wry::WebView) -> bool { false }
+
+/// Reactiva una pestaña suspendida. Es barato y no recarga la página.
+#[cfg(target_os = "windows")]
+fn resume_webview(view: &wry::WebView) {
+    use wry::WebViewExtWindows;
+    unsafe {
+        let Ok(core) = view.controller().CoreWebView2() else { return };
+        let Ok(v3) = core.cast::<ICoreWebView2_3>() else { return };
+        let _ = v3.Resume();
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resume_webview(_view: &wry::WebView) {}
 
 /// Inyecta el filtrado cosmético que las listas definen para *este* sitio.
 ///
@@ -1548,6 +1688,7 @@ fn make_content_view(
     let id_dl_d    = native_id.clone();
 
     let view = WebViewBuilder::new()
+        .with_additional_browser_args(browser_arguments())
         .with_url("about:blank")
         .with_incognito(incognito)
         .with_user_agent(USER_AGENT)
@@ -1845,6 +1986,9 @@ fn main() {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let proxy     = event_loop.create_proxy();
     let proxy_kbd = proxy.clone();
+    // Proxy reservado para el generador de pestañas de benchmark (sólo debug).
+    #[cfg(debug_assertions)]
+    let proxy_bench = proxy.clone();
 
     // Ventana nativa  
     let window = WindowBuilder::new()
@@ -1870,6 +2014,9 @@ fn main() {
     // Recuerda si ya pausamos el render por minimizado, para no repetir la
     // llamada COM en cada Resized.
     let oculto_por_minimizar: std::cell::Cell<bool> = std::cell::Cell::new(false);
+    // Pestañas suspendidas: hay que reanudarlas antes de volver a mostrarlas.
+    let suspendidas: std::cell::RefCell<std::collections::HashSet<String>> =
+        std::cell::RefCell::new(std::collections::HashSet::new());
     let loaded_urls: std::cell::RefCell<std::collections::HashMap<String, String>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
 
@@ -1880,6 +2027,7 @@ fn main() {
     // Con bundle-ui: registra el custom protocol "flux://" que sirve la UI embebida.
     // Sin bundle-ui: carga directamente desde localhost:8082 (Vite dev server).
     let chrome_base = WebViewBuilder::new()
+        .with_additional_browser_args(browser_arguments())
         .with_url(ui_url)
         .with_transparent(true);
 
@@ -2505,17 +2653,45 @@ fn main() {
                 let ch = chrome_h.get();
                 let pw = ai_panel_w.get();
 
-                // Si cambiamos de pestaña activa, ocultar la anterior
+                // Si cambiamos de pestaña activa, ocultar la anterior.
+                // Encogerla a 0×0 no basta: para WebView2 sigue "visible" y su
+                // renderer continúa decodificando video y animando a pleno
+                // ritmo. Con varias pestañas abiertas eso multiplica el gasto
+                // de GPU por pestaña aunque sólo se vea una.
                 let current_active = active_native_id.borrow().clone();
                 if current_active != native_id && !current_active.is_empty() {
                     if let Some(old_view) = content_views.borrow().get(&current_active) {
+                        set_webview_visible(old_view, false);
                         let _ = old_view.set_bounds(Rect {
                             position: LogicalPosition::new(0.0, 0.0).into(),
                             size: LogicalSize::new(0.0, 0.0).into(),
                         });
+
+                        // Paso 1: pedirle que suelte cachés. Es inocuo — no
+                        // corta temporizadores, descargas ni audio.
+                        set_webview_low_memory(old_view, true);
+
+                        // Paso 2: suspenderla del todo. Sólo si no está
+                        // sonando: cortar la música de una pestaña de fondo
+                        // sería peor que gastar la memoria.
+                        if try_suspend_webview(old_view) {
+                            suspendidas.borrow_mut().insert(current_active.clone());
+                            println!("[flux-browser] Pestaña {current_active} suspendida");
+                        }
                     }
                 }
                 *active_native_id.borrow_mut() = native_id.clone();
+
+                // La pestaña que pasa a primer plano vuelve a la normalidad.
+                if let Some(new_view) = content_views.borrow().get(&native_id) {
+                    if suspendidas.borrow_mut().remove(&native_id) {
+                        // Resume conserva el estado: no recarga ni pierde el scroll.
+                        resume_webview(new_view);
+                        println!("[flux-browser] Pestaña {native_id} reanudada");
+                    }
+                    set_webview_low_memory(new_view, false);
+                    set_webview_visible(new_view, true);
+                }
 
                 // Sólo en builds de desarrollo: FLUX_TEST_URL reemplaza la
                 // página inicial, para poder verificar el filtrado contra un
@@ -2524,6 +2700,29 @@ fn main() {
                 let url = if url == "about:blank" {
                     std::env::var("FLUX_TEST_URL").unwrap_or(url)
                 } else { url };
+
+                // FLUX_TEST_TABS=N abre N pestañas extra con la misma página,
+                // para medir cómo escalan RAM y GPU. También sólo en desarrollo.
+                #[cfg(debug_assertions)]
+                if native_id == "n-default" && !url.starts_with("about:") {
+                    if let Ok(n) = std::env::var("FLUX_TEST_TABS").unwrap_or_default().parse::<usize>() {
+                        for i in 0..n {
+                            let id = format!("n-bench-{i}");
+                            let _ = proxy_bench.send_event(UserEvent::NewTab {
+                                native_id: id.clone(), incognito: false,
+                            });
+                            let _ = proxy_bench.send_event(UserEvent::Navigate {
+                                native_id: id, url: url.clone(),
+                            });
+                        }
+                        // Volver a la primera pestaña: ejercita el camino de
+                        // reanudación y deja ver en el log si hubo recarga.
+                        let _ = proxy_bench.send_event(UserEvent::Navigate {
+                            native_id: "n-default".into(), url: url.clone(),
+                        });
+                        std::env::remove_var("FLUX_TEST_TABS");
+                    }
+                }
 
                 if url.starts_with("http://") || url.starts_with("https://") {
                     // Mismo criterio que en el navigation_handler: no tirar la
