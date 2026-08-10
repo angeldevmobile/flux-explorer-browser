@@ -5,7 +5,7 @@
   "license": "MIT",
   "author": "Angel Gabriel Zapata Lopez",
   "type": "module",
-  "description": "Flux Browser — navegador moderno con motor de renderizado propio en Rust",
+  "description": "Flux Browser — navegador de escritorio nativo en Rust, con motor de renderizado propio en desarrollo",
   "scripts": {
     "dev": "vite --port 8082",
     "build": "vite build",

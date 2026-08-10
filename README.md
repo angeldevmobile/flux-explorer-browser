@@ -2,7 +2,7 @@
 
 # Flux Browser
 
-**Navegador web construido desde cero con motor propio en Rust, UI en React y backend Node.js**
+**Navegador de escritorio nativo en Rust — con motor de renderizado propio en desarrollo, UI en React y backend Node.js**
 
 [![Rust](https://img.shields.io/badge/Rust-2021-orange?logo=rust)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react)](https://react.dev/)
@@ -18,31 +18,75 @@
 
 ## ¿Qué es Flux?
 
-Flux es un navegador web construido desde cero en Rust. Su núcleo — **flux-engine** — implementa un pipeline completo de renderizado HTML/CSS, un motor JavaScript ligero basado en QuickJS, y una capa de seguridad propia.
+Flux es un navegador de escritorio escrito en Rust. La aplicación que instalas hoy
+renderiza las páginas con WebView2; en paralelo, el repositorio contiene
+**flux-engine**, un motor de renderizado HTML/CSS/JS propio que ya llega a píxeles
+pero que **todavía no está conectado al navegador**. Las dos secciones siguientes
+explican exactamente dónde está la línea.
 
-### El motor propio existe y funciona hoy
+### Qué hay construido del motor propio
 
-El pipeline de renderizado está construido y operativo:
+El pipeline existe de punta a punta y es código Rust propio en cada paso:
 
 ```
 HTML → Tokenizer → DOM → CSS Cascade → Layout → Display List → FluxSoftRenderer → píxeles
 ```
 
-Cada paso es código Rust propio. El **FluxSoftRenderer** es el último paso del motor: toma el display list y pinta píxeles reales en un buffer de memoria (XRGB8888). Puedes verlo funcionando ahora mismo:
+El **FluxSoftRenderer** es el último paso: toma el display list y pinta píxeles
+reales en un buffer de memoria (XRGB8888). Puedes verlo funcionando ahora mismo:
 
 ```bash
 cargo run --bin flux-render   # abre una ventana con el motor propio renderizando
 ```
 
+**Qué cubre hoy.** Layout de bloques e inline con word wrapping y `text-align`;
+cascade con especificidad y herencia; UA stylesheet; colores, longitudes, márgenes,
+padding y bordes; JS con QuickJS. El pipeline está cubierto por 37 tests.
+
+**Qué no cubre todavía.** El display list tiene tres comandos — rellenar rectángulo,
+trazar borde y dibujar texto — así que **no hay imágenes, `border-radius`,
+gradientes, transforms ni opacidad**. En layout, `display: flex` y `display: grid`
+se parsean pero caen al camino de bloque, y no hay floats, `position`, `z-index` ni
+scroll. Es un pipeline completo en el sentido de que llega a píxeles, no en el de
+cubrir CSS moderno.
+
 ### ¿Por qué las páginas web todavía pasan por WebView2?
 
-El motor existe. Lo que aún falta es **el cable que lo conecta al browser**: cuando el usuario navega a `https://ejemplo.com`, en lugar de pasarle la URL a WebView2, pasársela al pipeline propio y mostrar los píxeles resultantes en la ventana del browser.
+Porque el motor todavía no puede con ellas, y conviene ser preciso sobre por qué.
+La firma del pipeline es:
 
-Ese paso es el siguiente en el roadmap. Mientras tanto, WebView2 actúa como superficie provisional — garantiza compatibilidad total con la web moderna mientras el motor propio madura.
+```rust
+pub fn run_pipeline(html: &str) -> Vec<paint::DisplayCommand>
+```
 
-> El motor es el cerebro. WebView2 es la pantalla provisional, no el motor.
+Recibe **un string de HTML y nada más**. No carga subrecursos: ni hojas de estilo
+externas (`<link rel="stylesheet">`), ni imágenes, ni JS externo — solo ve `<style>`
+y `<script>` inline. El viewport está fijo en 800×600 y no hay scroll. Y es una
+función de un solo disparo: no hay bucle de eventos ni re-layout incremental cuando
+el JS muta el DOM.
 
-Es la misma estrategia que usó Brave al arrancar: primero construyes el valor real (privacidad, búsqueda, seguridad, UX), luego conectas tu propio renderer cuando está listo. Cuando ese cable esté hecho, Flux será uno de los pocos browsers con motor de píxeles escrito en Rust — sin Blink, sin WebKit, sin código C++.
+Es decir, no es "conectar un cable". Para tomar el relevo de WebView2 falta:
+
+| Falta | Por qué bloquea |
+|---|---|
+| **Cargador de subrecursos** | El cambio de fondo: el pipeline tiene que dejar de ser síncrono y pasar a un loader con recursos pendientes |
+| **Imágenes** | No hay comando de paint para ellas (el crate `image` ya es dependencia) |
+| **Flexbox** | Sin esto casi ninguna web moderna maqueta bien |
+| **Scroll y viewport real** | Hoy es un lienzo fijo |
+| **Re-layout incremental** | El JS solo parchea texto en un display list ya construido |
+
+Mientras tanto WebView2 actúa como superficie provisional — garantiza
+compatibilidad total con la web moderna mientras el motor propio madura.
+
+> Dicho sin adornos: hoy el motor de renderizado de Flux es WebView2. El motor
+> propio es una segunda implementación en curso dentro del mismo repositorio.
+
+El orden es deliberado: primero construir el valor real (privacidad, búsqueda,
+seguridad, UX) sobre una superficie que ya funciona, y conectar el renderer propio
+cuando esté listo. La diferencia con Brave o Arc es que ellos forkearon Chromium y
+ahí se quedaron — no tienen ni planean un motor propio. Flux sí lo está escribiendo,
+pero conviene decirlo en futuro: **cuando** ese cable esté hecho, será uno de los
+pocos browsers con motor de píxeles en Rust. Hoy todavía no lo es.
 
 La búsqueda corre sobre **Flux Search**: agrega resultados de múltiples fuentes via SearXNG self-hosted y los re-rankea con BM25 propio. Sin Google. Sin Bing. Sin dependencias externas.
 
@@ -52,14 +96,20 @@ La búsqueda corre sobre **Flux Search**: agrega resultados de múltiples fuente
 
 Los navegadores más exitosos no construyeron su propio motor de renderizado completo desde el día 1 — construyeron su valor por encima de uno existente:
 
-| Browser | Su engine propio (el valor real) | Superficie de render |
+| Browser | Lo que aporta encima (funcionando hoy) | Superficie de render |
 |---|---|---|
 | **Brave** | Ad blocking · Rewards · Privacy | Chromium (Blink) |
 | **Arc** | Spaces · AI · UX innovador | Chromium |
 | **Firefox Focus** | Privacy core · Tracking protection | WebKit |
-| **Flux** | Motor Rust propio · Search · Privacy · BM25 · JS sandbox · CSP | WebView2 / WebKit |
+| **Flux** | Search propio · BM25 · Privacy · CSP · adblocker | WebView2 |
 
-El 70% de las vulnerabilidades de Chrome y Firefox son errores de memoria en C++. Rust los elimina en compile time. El engine de Flux es seguro por construcción.
+El motor Rust no aparece en esa columna a propósito: es trabajo en curso, no valor
+entregado. Va en el [roadmap](#lo-que-viene--post-beta-1).
+
+El 70% de las vulnerabilidades de Chrome y Firefox son errores de memoria en C++, y
+Rust los elimina en compile time. Eso aplica al código de flux-engine y a la capa
+nativa del navegador. **No aplica al renderizado de páginas**, que hoy hace WebView2
+en C++ — ese beneficio llega cuando el motor propio tome el relevo.
 
 ---
 
@@ -73,15 +123,15 @@ Flux está diseñado desde cero con un modelo **privacy-first y local-first**. N
 |---|---|
 | **HTTPS-only** | Upgrade automático HTTP → HTTPS en todas las peticiones antes de cargar la página |
 | **HSTS preload** | Lista embebida de dominios que siempre usan HTTPS — no hay primera petición insegura |
-| **Ad/tracker blocker** | Bloqueo de ~40 dominios de rastreo y publicidad (EasyList/EasyPrivacy subset) integrado en el engine Rust |
+| **Ad/tracker blocker** | Motor [`adblock`](https://github.com/brave/adblock-rust) de Brave con EasyList + EasyPrivacy + uBlock y scriptlets, aplicado a cada petición vía `WebResourceRequested`. Las listas se actualizan solas cada 24 h |
 | **Bloqueador de anuncios YouTube** | Tres capas: (1) parchea `ytInitialPlayerResponse` antes de que YouTube lo lea para eliminar `adPlacements` y `playerAds`, (2) CSS cosmético que oculta overlays y banners residuales, (3) intercepta `fetch`/`XHR` para bloquear URLs de tracking (`/api/stats/ads`, `/pagead/`) |
 | **CSP enforcement** | Parseo y aplicación del `Content-Security-Policy` del servidor — bloquea scripts inline no autorizados y peticiones `fetch()` fuera de `connect-src` |
-| **JS sandbox** | El runtime JavaScript corre en QuickJS con 16 MB de heap y 512 KB de stack máximo — sin acceso al filesystem ni al sistema operativo |
+| **JS sandbox** | El JS de las páginas corre hoy en el sandbox de WebView2 (proceso aislado, igual que Edge). El runtime propio en QuickJS —16 MB de heap, 512 KB de stack, sin filesystem— aplica al motor Rust, que aún no renderiza páginas |
 | **Permisos explícitos** | Cámara, micrófono y geolocalización requieren confirmación del usuario vía barra de permisos nativa — igual que Chrome/Firefox |
 | **Datos 100% locales** | Historial, favoritos, notas, tareas y contraseñas se guardan en `flux.db` (SQLite local) — nunca en servidores externos |
 | **Sin telemetría** | Flux no envía datos de uso, crashlogs ni métricas a ningún servidor |
 | **Búsqueda privada** | Flux Search usa SearXNG self-hosted — las búsquedas no llegan a Google ni Bing |
-| **Rust sin memory bugs** | Buffer overflows, use-after-free y null pointers son imposibles en safe Rust — las categorías de vulnerabilidades más comunes en navegadores C++ no existen |
+| **Capa nativa en Rust** | Buffer overflows, use-after-free y null pointers son imposibles en safe Rust — eso cubre la capa nativa y el motor propio. El renderizado de páginas sigue siendo Chromium en C++ hasta que el motor tome el relevo |
 
 ### Qué NO hace Flux (a diferencia de Chrome)
 
@@ -111,8 +161,9 @@ flux-browser.exe   ← proceso principal Rust
 - **Sin motor de extensiones** — sin procesos de background por extensión
 - **Sin sincronización en la nube** — sin workers de sync activos
 - **Backend SQLite local** — sin pools de conexión a bases de datos externas
-- **Engine Rust arena-based** — estructuras de datos contiguas sin fragmentación de heap
+- **Proceso principal en Rust** — la capa nativa (ventana, pestañas, IPC) no arrastra un runtime de JS
 - **Tab discard automático** — las pestañas inactivas por más de 10 minutos liberan su memoria automáticamente
+- **Suspensión y pausa de render** — `TrySuspend` en pestañas de fondo (−27 % de RAM con 5 pestañas) y `SetIsVisible(false)` al minimizar
 
 Cuando el motor propio (FluxSoftRenderer) reemplace a WebView2, el consumo bajará significativamente — ese es uno de los objetivos del roadmap.
 
@@ -176,7 +227,13 @@ Cuando el motor propio (FluxSoftRenderer) reemplace a WebView2, el consumo bajar
 
 ## flux-engine
 
-El núcleo de Flux. Escrito completamente en Rust. No usa Electron, no usa Chromium, no usa Node.js.
+La biblioteca del motor propio. Escrita completamente en Rust: sin Electron, sin
+Chromium y sin Node.js en su código.
+
+> **Alcance de esa frase.** Es cierta de `flux-engine` como biblioteca, no del
+> ejecutable que instalas. El navegador sí embebe Chromium —WebView2 lo es— y sí
+> lanza un proceso Node (`flux-backend.exe`, empaquetado con `pkg`). Lo que sigue
+> describe el motor, no lo que renderiza tus pestañas hoy.
 
 ### Pipeline HTML/CSS/JS
 
@@ -192,15 +249,17 @@ URL
                 └─→ Parser  (DOM arena — Vec<Node> + NodeId)
                      ├─→ CSS Cascade  (especificidad, herencia, UA stylesheet)
                      ├─→ JS Runtime  (QuickJS sandbox)
-                     │     · DOM bindings completos
+                     │     · DOM bindings (query, atributos, mutación)
                      │     · fetch() real HTTPS + CSP connect-src
                      │     · addEventListener / DOMContentLoaded / load
                      │     · createElement / appendChild funcional
+                     │     · setTimeout: síncrono al final del script
                      │     · Sandbox: 16 MB heap · 512 KB stack
                      └─→ Layout Engine
                           · Block formatting context
                           · Inline formatting context + word wrapping
                           · text-align (left/center/right)
+                          · sin flex/grid/float/position — ver limitaciones
                           └─→ Display List (paint commands)
                                └─→ FluxSoftRenderer
                                     · Pixel buffer XRGB8888
@@ -211,16 +270,22 @@ URL
 
 ### Fases del motor completadas
 
+Construidas y cubiertas por tests, pero **solo alcanzables vía `flux-render`** — el
+navegador todavía no las usa:
+
 | Fase | Componente | Estado |
 |---|---|---|
-| 1 | Tokenizer zero-copy + Parser DOM arena | 
-| 2 | Style resolution + UA stylesheet completo | 
-| 3 | Inline layout + word wrapping + text-align | 
-| 4 | FluxSoftRenderer — pixel buffer real con fontdue |
-| 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | 
-| 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | 
-| 7 | Descargador de medios — yt-dlp bundleado con progreso en tiempo real | 
-| 8 | Mute por pestaña — control de audio vía IPC | 
+| 1 | Tokenizer zero-copy + Parser DOM arena | Hecho |
+| 2 | Style resolution + UA stylesheet | Hecho |
+| 3 | Inline layout + word wrapping + text-align | Hecho |
+| 4 | FluxSoftRenderer — pixel buffer real con fontdue | Hecho |
+| 5 | JavaScript con QuickJS — DOM bindings + fetch + eventos | Hecho |
+| 6 | Security layer — CSP + HTTPS-only + HSTS + ad blocker | Hecho |
+| — | Conectar el pipeline al `content_view` del navegador | **Pendiente** |
+
+Las fases 7 y 8 del changelog (descargador yt-dlp, mute por pestaña) son features
+del navegador, no del motor: viven en `browser.rs` y funcionan sobre WebView2.
+
 ### JavaScript (Fase 5)
 
 Motor JS ligero basado en **rquickjs** (QuickJS embebido en Rust, ~10 MB vs ~100 MB de V8).
@@ -250,9 +315,18 @@ Motor JS ligero basado en **rquickjs** (QuickJS embebido en Rust, ~10 MB vs ~100
 | HTTPS-only | Upgrade automático HTTP → HTTPS en todas las requests |
 | HSTS preload | Lista embebida de 20+ dominios de alto tráfico |
 | CSP enforcement | Parseo de `Content-Security-Policy` del servidor · bloqueo inline scripts · bloqueo `connect-src` en JS fetch |
-| Ad/tracker blocker | Lista de ~40 dominios conocidos (EasyList/EasyPrivacy subset) |
+| Ad/tracker blocker | Lista fija de ~40 dominios (`security::is_blocked`). Es el bloqueador **del pipeline propio**, no el del navegador — ver nota abajo |
 | JS sandbox | QuickJS con límites de memoria estrictos por tab |
 | URL security | Validación pre-request en fetcher y en JS |
+
+> **Hay dos bloqueadores distintos, no uno.** Conviene no confundirlos:
+>
+> - `security::is_blocked` — la lista fija de ~40 dominios de esta tabla. La usa el
+>   pipeline propio y el chequeo de URL de navegación.
+> - `adblocker::should_block` — el motor [`adblock`](https://github.com/brave/adblock-rust)
+>   de Brave con EasyList, EasyPrivacy, uBlock y scriptlets, con listas que se
+>   actualizan solas cada 24 h. **Este es el que filtra lo que ves al navegar**, vía
+>   la intercepción `WebResourceRequested` de WebView2.
 
 ### Decisiones de memoria
 
@@ -472,13 +546,44 @@ Chrome del navegador construido en React + Tailwind. Rodea el contenido con la i
 
 | Plataforma | Estado | Notas |
 |---|---|---|
-| **Windows 10 / 11** |  Disponible (Beta 1) | `.exe` nativo, WebView2 preinstalado en Win11 |
-| **macOS 11+** | Próximamente | El engine Rust ya compila en macOS — falta empaquetar como `.app` |
-| **Linux** |  Investigación | wry soporta GTK/WebKitGTK — sin fecha estimada |
-| **Android** |  Largo plazo | Requiere reescribir el backend y adaptar la UI para táctil |
-| **iOS** |  Largo plazo | Mismo roadmap que Android |
+| **Windows 10 / 11** | Disponible (Beta 1) | `.exe` nativo, WebView2 preinstalado en Win11 |
+| **macOS 11+** | No portado | Ver más abajo: el bloqueador hay que reimplementarlo |
+| **Linux** | No portado | Igual que macOS |
+| **Android** | Largo plazo | Requiere reescribir el backend y adaptar la UI para táctil |
+| **iOS** | Largo plazo | Mismo roadmap que Android |
 
 > Flux es una aplicación de escritorio nativa. No usa Electron ni Docker — es un `.exe` directo que arranca solo.
+
+### Por qué hoy solo funciona en Windows
+
+Conviene ser claro para no prometer de más: **no es cuestión de empaquetado**.
+
+La biblioteca `flux-engine` (parseo, layout, pintado) sí es multiplataforma. El
+navegador no: `src/bin/browser.rs` importa `std::os::windows::process::CommandExt`
+sin condicionar y tiene una decena de bloques `cfg(target_os = "windows")`.
+
+Pero el obstáculo de fondo es otro. **Todo el bloqueo de anuncios está escrito
+contra la API COM de WebView2**, que solo existe en Windows: interceptar cada
+petición (`WebResourceRequested`), cancelarla con una respuesta 403, pausar el
+render de ventanas ocultas (`SetIsVisible`) y suspender pestañas de segundo plano
+(`TrySuspend`).
+
+`wry` sí abstrae la ventana y el WebView —usa WKWebView en macOS y WebKitGTK en
+Linux— así que esa capa portaría con trabajo razonable. Lo que no tiene
+equivalente directo es la intercepción de red:
+
+- **WKWebView** ofrece `WKContentRuleList`, con un formato de reglas propio de
+  Apple y bastante más limitado. Habría que convertir EasyList a ese formato y
+  asumir que no cubre todos los casos.
+- **WebKitGTK** expone otro mecanismo distinto, con sus propias limitaciones.
+
+Es decir: la funcionalidad que da sentido a Flux habría que **implementarla una
+vez por plataforma**, con capacidades desiguales entre ellas. Ese es el trabajo
+real de un port, no generar un `.app`.
+
+Otras ataduras menores: `flux-backend.exe` se compila con `pkg` para
+`node22-win-x64`, `yt-dlp.exe` es un binario de Windows, y las credenciales se
+guardan en el Credential Manager vía `keyring`.
 
 ---
 
@@ -504,7 +609,8 @@ No se requiere: Node.js · PostgreSQL · Docker · Python · yt-dlp manual.
 
 - [Rust](https://rustup.rs/) 1.75+
 - [Node.js](https://nodejs.org/) 18+ (solo para el paso de compilación del backend)
-- Windows 10/11 con WebView2 (preinstalado en Win11) o macOS 11+
+- Windows 10/11 con WebView2 (preinstalado en Win11) — es la única plataforma
+  donde el navegador compila hoy
 
 ### Pasos
 
@@ -555,6 +661,10 @@ docker compose up -d
 
 ### flux-engine — Motor de renderizado propio
 
+> Todo lo marcado abajo está construido y testeado en la biblioteca. Hasta que la
+> última casilla no esté hecha, nada de esto participa en el renderizado de las
+> páginas que ves al navegar.
+
 - [x] Tokenizer zero-copy
 - [x] Parser DOM arena-based
 - [x] CSS cascade con especificidad (tag · clase · id · inline)
@@ -566,7 +676,7 @@ docker compose up -d
 - [x] Glyph atlas con fontdue (cache de glifos rasterizados)
 - [x] Alpha blending
 - [x] JavaScript ligero — rquickjs (QuickJS embebido, ~10 MB)
-- [x] DOM bindings completos (getElementById, querySelector, textContent, style, classList...)
+- [x] DOM bindings (getElementById, querySelector, textContent, style, classList...)
 - [x] `createElement` / `appendChild` funcional
 - [x] `addEventListener` / `removeEventListener` / `dispatchEvent`
 - [x] Auto-fire `DOMContentLoaded` + `load`
@@ -580,6 +690,9 @@ docker compose up -d
 - [x] Sistema de permisos nativos (cámara, micrófono, notificaciones) via Rust
 - [x] Bloqueador de anuncios YouTube — scriptlet + CSS cosmético + intercepción fetch/XHR
 - [x] Manejo graceful de fallos del engine — si el puerto 4000 está ocupado el browser sigue funcionando
+- [ ] **Cargador de subrecursos** — CSS externo, imágenes y JS externo; el pipeline deja de ser síncrono
+- [ ] Scroll y viewport dinámico (hoy fijo en 800×600)
+- [ ] Re-layout incremental tras mutaciones del DOM
 - [ ] Conectar FluxSoftRenderer al content_view de la ventana nativa
 - [ ] Flexbox layout
 - [ ] Imágenes (`<img>` decodificada y pintada en el buffer)
@@ -746,7 +859,7 @@ flux-browser/
 |---|---|
 | **CSS Grid** | Layout de grilla nativo en el engine |
 | **GPU acceleration** | Reemplazar el soft renderer por un pipeline con `wgpu` para páginas complejas |
-| **Soporte macOS** | El engine ya compila en macOS — falta validar la UI y el empaquetado |
+| **Soporte macOS / Linux** | El grueso del trabajo es reimplementar el bloqueador: hoy depende de la API COM de WebView2, que no existe fuera de Windows ([detalle](#por-qué-hoy-solo-funciona-en-windows)) |
 | **Extensiones nativas Flux** | Sistema propio (sin WebExtensions) para plugins de privacidad y productividad |
 
 ---
